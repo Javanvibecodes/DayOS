@@ -1,0 +1,17 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "enables the default permissions",
+  "windows": [
+    "main"
+  ],
+  "permissions": [
+    "core:default",
+    "notification:default",
+    "autostart:default",
+    "global-shortcut:default",
+    "fs:default",
+    "opener:default",
+    "opener:allow-default-urls"
+  ]
+}

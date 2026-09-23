@@ -1,0 +1,91 @@
+pub mod database;
+pub mod commands;
+
+use database::DbState;
+use std::sync::Mutex;
+use tauri::Manager;
+
+#[cfg_attr(mobile, tauri::mobile_entry_point)]
+pub fn run() {
+    tauri::Builder::default()
+        .plugin(tauri_plugin_notification::init())
+        .plugin(tauri_plugin_autostart::init(
+            tauri_plugin_autostart::MacosLauncher::LaunchAgent,
+            None,
+        ))
+        .plugin(tauri_plugin_global_shortcut::Builder::new().build())
+        .plugin(tauri_plugin_fs::init())
+        .plugin(tauri_plugin_opener::init())
+        .setup(|app| {
+            if cfg!(debug_assertions) {
+                app.handle().plugin(
+                    tauri_plugin_log::Builder::default()
+                        .level(log::LevelFilter::Info)
+                        .build(),
+                )?;
+            }
+
+            // Initialize database
+            let db = database::init_database(app.handle())
+                .expect("failed to initialize database");
+            
+            app.manage(DbState {
+                conn: Mutex::new(db),
+            });
+
+            Ok(())
+        })
+        .invoke_handler(tauri::generate_handler![
+            commands::create_task,
+            commands::get_all_tasks,
+            commands::get_tasks_by_date,
+            commands::update_task,
+            commands::complete_task,
+            commands::uncomplete_task,
+            commands::delete_task,
+            commands::duplicate_task,
+            commands::create_goal,
+            commands::get_all_goals,
+            commands::update_goal,
+            commands::delete_goal,
+            commands::create_project,
+            commands::get_all_projects,
+            commands::update_project,
+            commands::delete_project,
+            commands::create_category,
+            commands::get_all_categories,
+            commands::delete_category,
+            commands::create_meeting,
+            commands::get_all_meetings,
+            commands::get_meetings_by_date,
+            commands::update_meeting,
+            commands::delete_meeting,
+            commands::search,
+            commands::get_task_stats,
+            commands::get_tasks_for_date_range,
+            commands::get_meetings_for_date_range,
+            commands::get_setting,
+            commands::set_setting,
+            commands::create_routine,
+            commands::get_all_routines,
+            commands::update_routine,
+            commands::delete_routine,
+            commands::create_routine_task,
+            commands::get_routine_tasks,
+            commands::get_all_routine_tasks,
+            commands::update_routine_task,
+            commands::delete_routine_task,
+            commands::create_planner_entry,
+            commands::get_planner_entries,
+            commands::update_planner_entry,
+            commands::delete_planner_entry,
+            commands::create_planner_template,
+            commands::get_planner_templates,
+            commands::delete_planner_template,
+            commands::create_day_template,
+            commands::get_day_templates,
+            commands::delete_day_template,
+        ])
+        .run(tauri::generate_context!())
+        .expect("error while running tauri application");
+}

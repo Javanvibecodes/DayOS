@@ -1,0 +1,621 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <meta content="width=device-width, initial-scale=1.0" name="viewport" />
+    <title>DayOS - Tasks</title>
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400&amp;display=swap"
+        rel="stylesheet" />
+    <link
+        href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap"
+        rel="stylesheet" />
+    <link
+        href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap"
+        rel="stylesheet" />
+    <script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "tertiary-container": "#d97721",
+                        "on-tertiary-fixed-variant": "#703700",
+                        "secondary-fixed-dim": "#ddb7ff",
+                        "on-secondary-container": "#d6a9ff",
+                        "on-error-container": "#ffdad6",
+                        "on-tertiary": "#4f2500",
+                        "outline": "#908fa0",
+                        "primary-fixed": "#e1e0ff",
+                        "primary": "#c0c1ff",
+                        "secondary-fixed": "#f0dbff",
+                        "secondary-container": "#6f00be",
+                        "secondary": "#ddb7ff",
+                        "surface-tint": "#c0c1ff",
+                        "surface-variant": "#353437",
+                        "error-container": "#93000a",
+                        "on-error": "#690005",
+                        "background": "#131315",
+                        "surface-container-high": "#2a2a2c",
+                        "inverse-primary": "#494bd6",
+                        "surface-dim": "#131315",
+                        "surface-container-lowest": "#0e0e10",
+                        "on-primary": "#1000a9",
+                        "surface-container-highest": "#353437",
+                        "on-primary-container": "#0d0096",
+                        "error": "#ffb4ab",
+                        "tertiary-fixed": "#ffdcc5",
+                        "primary-container": "#8083ff",
+                        "surface-container": "#201f22",
+                        "on-surface": "#e5e1e4",
+                        "primary-fixed-dim": "#c0c1ff",
+                        "tertiary": "#ffb783",
+                        "inverse-surface": "#e5e1e4",
+                        "surface-bright": "#39393b",
+                        "on-tertiary-fixed": "#301400",
+                        "surface-container-low": "#1c1b1d",
+                        "on-background": "#e5e1e4",
+                        "outline-variant": "#464554",
+                        "inverse-on-surface": "#313032",
+                        "on-primary-fixed": "#07006c",
+                        "surface": "#131315",
+                        "on-secondary-fixed": "#2c0051",
+                        "on-secondary": "#490080",
+                        "on-tertiary-container": "#452000",
+                        "on-primary-fixed-variant": "#2f2ebe",
+                        "on-surface-variant": "#c7c4d7",
+                        "on-secondary-fixed-variant": "#6900b3",
+                        "tertiary-fixed-dim": "#ffb783"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "xl": "32px",
+                        "max-width": "1440px",
+                        "lg": "24px",
+                        "sidebar-width": "240px",
+                        "gutter": "16px",
+                        "xs": "4px",
+                        "sidebar-collapsed": "64px",
+                        "unit": "4px",
+                        "sm": "8px",
+                        "md": "16px"
+                    },
+                    "fontFamily": {
+                        "body-sm": ["Inter"],
+                        "label-sm": ["Inter"],
+                        "body-md": ["Inter"],
+                        "label-md": ["Inter"],
+                        "display": ["Inter"],
+                        "body-lg": ["Inter"],
+                        "mono": ["JetBrains Mono"],
+                        "headline-lg": ["Inter"],
+                        "headline-md": ["Inter"]
+                    },
+                    "fontSize": {
+                        "body-sm": ["13px", { "lineHeight": "18px", "letterSpacing": "0.01em", "fontWeight": "400" }],
+                        "label-sm": ["11px", { "lineHeight": "14px", "letterSpacing": "0.05em", "fontWeight": "600" }],
+                        "body-md": ["14px", { "lineHeight": "20px", "letterSpacing": "0em", "fontWeight": "400" }],
+                        "label-md": ["12px", { "lineHeight": "16px", "letterSpacing": "0.02em", "fontWeight": "500" }],
+                        "display": ["32px", { "lineHeight": "40px", "letterSpacing": "-0.02em", "fontWeight": "600" }],
+                        "body-lg": ["16px", { "lineHeight": "24px", "letterSpacing": "0em", "fontWeight": "400" }],
+                        "mono": ["13px", { "lineHeight": "20px", "fontWeight": "400" }],
+                        "headline-lg": ["24px", { "lineHeight": "32px", "letterSpacing": "-0.015em", "fontWeight": "600" }],
+                        "headline-md": ["20px", { "lineHeight": "28px", "letterSpacing": "-0.01em", "fontWeight": "600" }]
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background-color: #3f3f46;
+            border-radius: 4px;
+        }
+
+        .task-checkbox:checked+div {
+            background-color: #6366f1;
+            border-color: #6366f1;
+        }
+
+        .task-checkbox:checked+div svg {
+            opacity: 1;
+        }
+    </style>
+</head>
+
+<body
+    class="bg-background text-on-background font-body-md min-h-screen flex overflow-hidden selection:bg-primary-container selection:text-on-primary-container">
+    <!-- SideNavBar (Shared Component) -->
+    <nav
+        class="hidden md:flex flex-col h-full p-md bg-surface/80 dark:bg-surface/80 text-primary dark:text-primary font-body-md text-body-md fixed left-0 top-0 h-screen w-sidebar-width border-r border-outline-variant/20 backdrop-blur-xl transition-all duration-300 z-50">
+        <div class="flex items-center gap-3 mb-xl px-sm cursor-pointer hover:text-primary transition-colors">
+            <div
+                class="w-8 h-8 rounded-lg bg-surface-container-highest flex items-center justify-center overflow-hidden border border-outline-variant/30">
+                <img alt="User Profile" class="w-full h-full object-cover"
+                    data-alt="A futuristic, sleek 3D rendered avatar representing an AI assistant or modern professional profile picture, high contrast lighting, dark mode aesthetic with subtle neon blue accents."
+                    src="https://lh3.googleusercontent.com/aida-public/AB6AXuD7nezuFmebBPFAo2sMxaWlikNuqm2UdYC0IdXIIvfBFGc1Ly3-xtNmadYLf5Ry4FrjXjjSXwDwa0GJBPVmhRltQ6y7sICBAQ_awCH3q8JDxWaJUFQOD7J6ugmkyw76h_HxE8sYnRHVkb2yLeWx9ARTByAL5AyPIftd1CFU6J2SauxTs8BTz0fOsLth6P1Z9Qgh8KJW6PUrWmuTMEpE5UFKAO0uIj070OE6mF4LX4-WHdmpYXKGuvtU" />
+            </div>
+            <div>
+                <h1
+                    class="font-headline-md text-headline-md font-bold text-on-surface dark:text-on-surface leading-tight">
+                    DayOS</h1>
+                <p class="font-label-sm text-label-sm text-on-surface-variant">Local-first Productivity</p>
+            </div>
+        </div>
+        <div class="flex-1 flex flex-col gap-unit overflow-y-auto custom-scrollbar pr-xs">
+            <a class="flex items-center gap-3 px-sm py-2 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors duration-200 ease-in-out active:scale-[0.98]"
+                href="#">
+                <span class="material-symbols-outlined text-[20px]"
+                    style="font-variation-settings: 'FILL' 0;">today</span>
+                <span>Today</span>
+            </a>
+            <!-- Active State Navigation -->
+            <a class="flex items-center gap-3 px-sm py-2 bg-primary-container text-on-primary-container rounded-lg transition-colors duration-200 ease-in-out active:scale-[0.98]"
+                href="#">
+                <span class="material-symbols-outlined text-[20px]"
+                    style="font-variation-settings: 'FILL' 1;">checklist</span>
+                <span>Tasks</span>
+            </a>
+            <a class="flex items-center gap-3 px-sm py-2 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors duration-200 ease-in-out active:scale-[0.98]"
+                href="#">
+                <span class="material-symbols-outlined text-[20px]"
+                    style="font-variation-settings: 'FILL' 0;">emoji_events</span>
+                <span>Goals</span>
+            </a>
+            <a class="flex items-center gap-3 px-sm py-2 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors duration-200 ease-in-out active:scale-[0.98]"
+                href="#">
+                <span class="material-symbols-outlined text-[20px]"
+                    style="font-variation-settings: 'FILL' 0;">account_tree</span>
+                <span>Projects</span>
+            </a>
+            <a class="flex items-center gap-3 px-sm py-2 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors duration-200 ease-in-out active:scale-[0.98]"
+                href="#">
+                <span class="material-symbols-outlined text-[20px]"
+                    style="font-variation-settings: 'FILL' 0;">groups</span>
+                <span>Meetings</span>
+            </a>
+            <a class="flex items-center gap-3 px-sm py-2 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors duration-200 ease-in-out active:scale-[0.98]"
+                href="#">
+                <span class="material-symbols-outlined text-[20px]"
+                    style="font-variation-settings: 'FILL' 0;">calendar_view_day</span>
+                <span>Timetable</span>
+            </a>
+        </div>
+        <div class="mt-auto pt-md border-t border-outline-variant/20 flex flex-col gap-unit">
+            <a class="flex items-center gap-3 px-sm py-2 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors duration-200 ease-in-out active:scale-[0.98]"
+                href="#">
+                <span class="material-symbols-outlined text-[20px]"
+                    style="font-variation-settings: 'FILL' 0;">event</span>
+                <span>Date</span>
+            </a>
+            <a class="flex items-center gap-3 px-sm py-2 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors duration-200 ease-in-out active:scale-[0.98]"
+                href="#">
+                <span class="material-symbols-outlined text-[20px]"
+                    style="font-variation-settings: 'FILL' 0;">sensors</span>
+                <span>Status</span>
+            </a>
+            <a class="flex items-center gap-3 px-sm py-2 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors duration-200 ease-in-out active:scale-[0.98]"
+                href="#">
+                <span class="material-symbols-outlined text-[20px]"
+                    style="font-variation-settings: 'FILL' 0;">settings</span>
+                <span>Settings</span>
+            </a>
+        </div>
+    </nav>
+    <!-- TopAppBar (Shared Component) -->
+    <header
+        class="hidden md:flex justify-between items-center px-lg bg-surface/80 dark:bg-surface/80 text-primary dark:text-primary font-headline-md text-headline-md fixed top-0 right-0 w-[calc(100%-theme(spacing.sidebar-width))] h-16 border-b border-outline-variant/20 backdrop-blur-xl z-40">
+        <div class="flex items-center gap-md w-full max-w-md">
+            <div class="relative w-full flex items-center group">
+                <span
+                    class="material-symbols-outlined absolute left-3 text-on-surface-variant text-[20px] group-focus-within:text-primary transition-colors">search</span>
+                <input
+                    class="w-full bg-surface-container-low border border-outline-variant/30 rounded-lg pl-10 pr-4 py-2 text-body-md font-body-md text-on-surface placeholder:text-on-surface-variant/50 focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/50 transition-all"
+                    placeholder="Search tasks, projects, or commands... (Cmd+K)" type="text" />
+                <div class="absolute right-3 flex gap-1">
+                    <span
+                        class="px-1.5 py-0.5 rounded border border-outline-variant/30 text-[10px] font-mono text-on-surface-variant bg-surface-container">⌘</span>
+                    <span
+                        class="px-1.5 py-0.5 rounded border border-outline-variant/30 text-[10px] font-mono text-on-surface-variant bg-surface-container">K</span>
+                </div>
+            </div>
+        </div>
+        <div class="flex items-center gap-4">
+            <div class="flex items-center gap-2">
+                <button aria-label="notifications"
+                    class="p-2 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-primary transition-colors cursor-pointer active:scale-[0.98]">
+                    <span class="material-symbols-outlined text-[20px]">notifications</span>
+                </button>
+                <button aria-label="help"
+                    class="p-2 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-primary transition-colors cursor-pointer active:scale-[0.98]">
+                    <span class="material-symbols-outlined text-[20px]">help</span>
+                </button>
+            </div>
+            <div class="w-px h-6 bg-outline-variant/30 mx-2"></div>
+            <button
+                class="flex items-center gap-2 px-4 py-2 bg-[#6366f1] text-white rounded-lg font-label-md text-label-md hover:bg-indigo-600 transition-colors shadow-sm cursor-pointer active:scale-[0.98]">
+                <span class="material-symbols-outlined text-[18px]">add</span>
+                New Task
+            </button>
+            <div class="w-8 h-8 rounded-full ml-2 overflow-hidden border border-outline-variant/30 cursor-pointer">
+                <img alt="User profile" class="w-full h-full object-cover"
+                    data-alt="A close-up portrait of a professional in a modern, dark-themed office environment, cinematic lighting, sleek aesthetics."
+                    src="https://lh3.googleusercontent.com/aida-public/AB6AXuB8esoQjQjtfTe5ltMPiAGEBqt922-RREg1QSnvXb_LETjHTG6syaD0TUWqF_xW8wyGK7b-uVMezwcC3PSXkYuw4gwK3qLSgJdTxMBIJ33ryJ0JbWf9i0tBjF0xM4SPz0Bf2OFh-D7FYZFh6AYv4aVhr-G3bnICO0dUlnjJfxBPDiOBSUK562sei9qhfrelxhyYXnBFJc_I0Yt64DNZwJgveCgkB-CX241aBDHM6YuZHBjIA8Q_kOVY" />
+            </div>
+        </div>
+    </header>
+    <!-- Main Content Area -->
+    <main class="flex-1 flex pt-16 md:pl-[240px] h-screen overflow-hidden bg-background">
+        <!-- Center Column (Task List) -->
+        <div class="flex-1 flex flex-col min-w-[320px] max-w-4xl border-r border-outline-variant/20 bg-surface">
+            <!-- Filters Header -->
+            <div
+                class="px-lg py-4 border-b border-outline-variant/20 flex flex-col gap-4 sticky top-0 bg-surface/90 backdrop-blur z-20">
+                <div class="flex items-center justify-between">
+                    <div class="flex gap-6">
+                        <button
+                            class="text-primary font-label-md text-label-md border-b-2 border-primary pb-1">Today</button>
+                        <button
+                            class="text-on-surface-variant hover:text-on-surface font-label-md text-label-md pb-1 transition-colors">Upcoming</button>
+                        <button
+                            class="text-on-surface-variant hover:text-on-surface font-label-md text-label-md pb-1 transition-colors">All</button>
+                        <button
+                            class="text-on-surface-variant hover:text-on-surface font-label-md text-label-md pb-1 transition-colors flex items-center gap-1">
+                            Completed <span
+                                class="bg-surface-container-high px-1.5 py-0.5 rounded text-[10px]">12</span>
+                        </button>
+                    </div>
+                    <div class="flex gap-2">
+                        <button
+                            class="p-1.5 rounded hover:bg-surface-container-high text-on-surface-variant transition-colors"><span
+                                class="material-symbols-outlined text-[20px]">filter_list</span></button>
+                        <button
+                            class="p-1.5 rounded hover:bg-surface-container-high text-on-surface-variant transition-colors"><span
+                                class="material-symbols-outlined text-[20px]">sort</span></button>
+                        <button
+                            class="p-1.5 rounded hover:bg-surface-container-high text-on-surface-variant transition-colors"><span
+                                class="material-symbols-outlined text-[20px]">view_agenda</span></button>
+                    </div>
+                </div>
+                <!-- Active Filter Chips -->
+                <div class="flex gap-2">
+                    <div
+                        class="inline-flex items-center gap-1 px-3 py-1 bg-surface-container-highest border border-outline-variant/30 rounded-full text-label-sm font-label-sm text-on-surface h-[28px]">
+                        <span class="w-2 h-2 rounded-full bg-error"></span>
+                        Priority: High
+                        <button class="ml-1 hover:text-error transition-colors"><span
+                                class="material-symbols-outlined text-[14px]">close</span></button>
+                    </div>
+                    <div
+                        class="inline-flex items-center gap-1 px-3 py-1 bg-[#6366f1]/20 border border-[#6366f1]/30 rounded-full text-label-sm font-label-sm text-[#c0c1ff] h-[28px]">
+                        <span class="material-symbols-outlined text-[14px]">folder</span>
+                        Category: ATLAS
+                        <button class="ml-1 hover:text-white transition-colors"><span
+                                class="material-symbols-outlined text-[14px]">close</span></button>
+                    </div>
+                    <button
+                        class="px-3 py-1 border border-outline-variant/30 border-dashed rounded-full text-label-sm font-label-sm text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-colors h-[28px] flex items-center gap-1">
+                        <span class="material-symbols-outlined text-[14px]">add</span> Filter
+                    </button>
+                </div>
+            </div>
+            <!-- Task List Scroll Area -->
+            <div class="flex-1 overflow-y-auto custom-scrollbar p-lg flex flex-col gap-8">
+                <!-- Group: Overdue -->
+                <div>
+                    <h3 class="font-label-md text-label-md text-error flex items-center gap-2 mb-3 px-2">
+                        <span class="material-symbols-outlined text-[16px]">warning</span> Overdue
+                    </h3>
+                    <div class="flex flex-col gap-sm">
+                        <!-- Task Item -->
+                        <div
+                            class="group flex items-center gap-3 p-3 bg-surface border border-error/30 rounded-lg hover:bg-surface-container-high hover:border-error/50 transition-all cursor-pointer h-[48px]">
+                            <label class="relative flex items-center cursor-pointer">
+                                <input class="sr-only task-checkbox" type="checkbox" />
+                                <div
+                                    class="w-4 h-4 border-2 border-outline-variant rounded flex items-center justify-center transition-colors">
+                                    <svg class="w-3 h-3 text-white opacity-0 transition-opacity" fill="none"
+                                        stroke="currentColor" viewbox="0 0 24 24">
+                                        <path d="M5 13l4 4L19 7" stroke-linecap="round" stroke-linejoin="round"
+                                            stroke-width="2"></path>
+                                    </svg>
+                                </div>
+                            </label>
+                            <div class="flex-1 flex items-center justify-between truncate">
+                                <span class="font-body-md text-body-md text-on-surface truncate">Finalize ATLAS
+                                    architecture diagrams</span>
+                                <div
+                                    class="flex items-center gap-3 ml-4 opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <span
+                                        class="material-symbols-outlined text-[18px] text-on-surface-variant hover:text-primary">edit</span>
+                                    <span
+                                        class="material-symbols-outlined text-[18px] text-on-surface-variant hover:text-error">delete</span>
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-3 shrink-0">
+                                <span class="font-mono text-mono text-error">Yesterday</span>
+                                <div
+                                    class="w-6 h-6 rounded-full bg-surface-container-highest border border-outline-variant/30 flex items-center justify-center">
+                                    <span class="text-[10px] font-bold text-on-surface">AT</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!-- Group: Today -->
+                <div>
+                    <h3 class="font-label-md text-label-md text-on-surface flex items-center gap-2 mb-3 px-2">
+                        <span class="material-symbols-outlined text-[16px]">today</span> Today
+                    </h3>
+                    <div class="flex flex-col gap-sm">
+                        <!-- Task Item - Selected -->
+                        <div
+                            class="group flex items-center gap-3 p-3 bg-surface-container border border-[#6366f1]/50 shadow-[0_0_15px_rgba(99,102,241,0.1)] rounded-lg cursor-pointer h-[48px] relative overflow-hidden">
+                            <div class="absolute left-0 top-0 bottom-0 w-1 bg-[#6366f1]"></div>
+                            <label class="relative flex items-center cursor-pointer ml-1">
+                                <input class="sr-only task-checkbox" type="checkbox" />
+                                <div
+                                    class="w-4 h-4 border-2 border-outline-variant rounded flex items-center justify-center transition-colors">
+                                    <svg class="w-3 h-3 text-white opacity-0 transition-opacity" fill="none"
+                                        stroke="currentColor" viewbox="0 0 24 24">
+                                        <path d="M5 13l4 4L19 7" stroke-linecap="round" stroke-linejoin="round"
+                                            stroke-width="2"></path>
+                                    </svg>
+                                </div>
+                            </label>
+                            <div class="flex-1 flex items-center justify-between truncate">
+                                <span class="font-body-md text-body-md text-on-surface truncate font-medium">Review
+                                    deployment pipeline configuration</span>
+                            </div>
+                            <div class="flex items-center gap-3 shrink-0">
+                                <span class="w-2 h-2 rounded-full bg-error" title="Critical Priority"></span>
+                                <span class="font-mono text-mono text-on-surface-variant">14:00</span>
+                                <div
+                                    class="w-6 h-6 rounded-full bg-surface-container-highest border border-outline-variant/30 flex items-center justify-center">
+                                    <span class="text-[10px] font-bold text-on-surface">AT</span>
+                                </div>
+                            </div>
+                        </div>
+                        <!-- Task Item -->
+                        <div
+                            class="group flex items-center gap-3 p-3 bg-surface border border-[#27272a] rounded-lg hover:bg-surface-container-high hover:border-outline-variant/50 transition-all cursor-pointer h-[48px]">
+                            <label class="relative flex items-center cursor-pointer">
+                                <input class="sr-only task-checkbox" type="checkbox" />
+                                <div
+                                    class="w-4 h-4 border-2 border-outline-variant rounded flex items-center justify-center transition-colors">
+                                    <svg class="w-3 h-3 text-white opacity-0 transition-opacity" fill="none"
+                                        stroke="currentColor" viewbox="0 0 24 24">
+                                        <path d="M5 13l4 4L19 7" stroke-linecap="round" stroke-linejoin="round"
+                                            stroke-width="2"></path>
+                                    </svg>
+                                </div>
+                            </label>
+                            <div class="flex-1 flex items-center justify-between truncate">
+                                <span class="font-body-md text-body-md text-on-surface truncate">Prepare slide deck for
+                                    sprint planning</span>
+                                <div
+                                    class="flex items-center gap-3 ml-4 opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <span
+                                        class="material-symbols-outlined text-[18px] text-on-surface-variant hover:text-primary">edit</span>
+                                    <span
+                                        class="material-symbols-outlined text-[18px] text-on-surface-variant hover:text-error">delete</span>
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-3 shrink-0">
+                                <span class="font-mono text-mono text-on-surface-variant">16:30</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!-- Group: Later -->
+                <div class="opacity-70 hover:opacity-100 transition-opacity">
+                    <h3 class="font-label-md text-label-md text-on-surface-variant flex items-center gap-2 mb-3 px-2">
+                        <span class="material-symbols-outlined text-[16px]">schedule</span> Later this week
+                    </h3>
+                    <div class="flex flex-col gap-sm">
+                        <!-- Task Item -->
+                        <div
+                            class="group flex items-center gap-3 p-3 bg-surface border border-[#27272a] rounded-lg hover:bg-surface-container-high transition-all cursor-pointer h-[48px]">
+                            <label class="relative flex items-center cursor-pointer">
+                                <input class="sr-only task-checkbox" type="checkbox" />
+                                <div
+                                    class="w-4 h-4 border-2 border-outline-variant rounded flex items-center justify-center transition-colors">
+                                    <svg class="w-3 h-3 text-white opacity-0 transition-opacity" fill="none"
+                                        stroke="currentColor" viewbox="0 0 24 24">
+                                        <path d="M5 13l4 4L19 7" stroke-linecap="round" stroke-linejoin="round"
+                                            stroke-width="2"></path>
+                                    </svg>
+                                </div>
+                            </label>
+                            <div class="flex-1 flex items-center justify-between truncate">
+                                <span class="font-body-md text-body-md text-on-surface truncate">Schedule 1:1 with
+                                    frontend team</span>
+                            </div>
+                            <div class="flex items-center gap-3 shrink-0">
+                                <span class="font-mono text-mono text-on-surface-variant">Thu</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <!-- Right Detail Panel (Glassmorphic) -->
+        <aside
+            class="w-[400px] flex-shrink-0 bg-surface-container-low/90 backdrop-blur-2xl border-l border-outline-variant/20 hidden xl:flex flex-col h-full shadow-[-10px_0_30px_rgba(0,0,0,0.5)]">
+            <!-- Detail Header Actions -->
+            <div class="h-16 border-b border-outline-variant/20 flex items-center justify-between px-lg shrink-0">
+                <div class="flex gap-2">
+                    <button
+                        class="w-8 h-8 flex items-center justify-center rounded hover:bg-surface-container text-on-surface-variant transition-colors"
+                        title="Complete">
+                        <span class="material-symbols-outlined text-[20px]">check_circle</span>
+                    </button>
+                    <button
+                        class="w-8 h-8 flex items-center justify-center rounded hover:bg-surface-container text-on-surface-variant transition-colors"
+                        title="Duplicate">
+                        <span class="material-symbols-outlined text-[20px]">content_copy</span>
+                    </button>
+                </div>
+                <div class="flex gap-2">
+                    <button
+                        class="w-8 h-8 flex items-center justify-center rounded hover:bg-error-container hover:text-on-error-container text-on-surface-variant transition-colors"
+                        title="Delete">
+                        <span class="material-symbols-outlined text-[20px]">delete</span>
+                    </button>
+                    <button
+                        class="w-8 h-8 flex items-center justify-center rounded hover:bg-surface-container text-on-surface-variant transition-colors">
+                        <span class="material-symbols-outlined text-[20px]">close</span>
+                    </button>
+                </div>
+            </div>
+            <!-- Detail Content -->
+            <div class="flex-1 overflow-y-auto custom-scrollbar p-lg flex flex-col gap-6">
+                <!-- Title & Meta -->
+                <div>
+                    <h2 class="font-headline-md text-headline-md text-on-surface mb-4 leading-snug">Review deployment
+                        pipeline configuration</h2>
+                    <div class="flex flex-col gap-3">
+                        <div class="flex items-center justify-between py-1 border-b border-outline-variant/10">
+                            <span
+                                class="text-label-sm font-label-sm text-on-surface-variant uppercase tracking-wider flex items-center gap-2 w-1/3">
+                                <span class="material-symbols-outlined text-[16px]">radio_button_checked</span> Status
+                            </span>
+                            <span class="font-body-md text-body-md text-on-surface flex-1">In Progress</span>
+                        </div>
+                        <div class="flex items-center justify-between py-1 border-b border-outline-variant/10">
+                            <span
+                                class="text-label-sm font-label-sm text-on-surface-variant uppercase tracking-wider flex items-center gap-2 w-1/3">
+                                <span class="material-symbols-outlined text-[16px]">priority_high</span> Priority
+                            </span>
+                            <span
+                                class="font-body-md text-body-md text-error flex items-center gap-1.5 flex-1 font-medium">
+                                <span class="w-2 h-2 rounded-full bg-error"></span> Critical
+                            </span>
+                        </div>
+                        <div class="flex items-center justify-between py-1 border-b border-outline-variant/10">
+                            <span
+                                class="text-label-sm font-label-sm text-on-surface-variant uppercase tracking-wider flex items-center gap-2 w-1/3">
+                                <span class="material-symbols-outlined text-[16px]">flag</span> Goal
+                            </span>
+                            <span
+                                class="font-body-md text-body-md text-[#c0c1ff] flex-1 bg-[#6366f1]/10 px-2 py-0.5 rounded w-max inline-block">Build
+                                ATLAS</span>
+                        </div>
+                        <div class="flex items-center justify-between py-1 border-b border-outline-variant/10">
+                            <span
+                                class="text-label-sm font-label-sm text-on-surface-variant uppercase tracking-wider flex items-center gap-2 w-1/3">
+                                <span class="material-symbols-outlined text-[16px]">notifications</span> Reminders
+                            </span>
+                            <span class="font-body-md text-body-md text-on-surface flex-1">15 min before</span>
+                        </div>
+                    </div>
+                </div>
+                <!-- Description (Markdown-like style) -->
+                <div class="mt-4">
+                    <h3 class="text-label-sm font-label-sm text-on-surface-variant uppercase tracking-wider mb-2">
+                        Description</h3>
+                    <div
+                        class="bg-surface-container rounded-lg p-4 border border-outline-variant/20 font-body-sm text-body-sm text-on-surface/90 leading-relaxed min-h-[150px]">
+                        <p class="mb-2">Need to verify the new GitHub Actions workflow before we merge the staging
+                            branch into production.</p>
+                        <ul class="list-disc pl-5 space-y-1 mb-3 text-on-surface-variant">
+                            <li>Check caching steps for node_modules</li>
+                            <li>Verify AWS credentials injection</li>
+                            <li>Confirm E2E tests are running sequentially</li>
+                        </ul>
+                        <p class="text-primary hover:underline cursor-pointer text-xs font-mono">Link:
+                            github.com/dayos/atlas/pull/42</p>
+                    </div>
+                </div>
+                <!-- Subtasks/Checklist -->
+                <div>
+                    <div class="flex items-center justify-between mb-2">
+                        <h3 class="text-label-sm font-label-sm text-on-surface-variant uppercase tracking-wider">
+                            Subtasks</h3>
+                        <span class="text-xs font-mono text-primary bg-primary/10 px-2 rounded-full">1/3</span>
+                    </div>
+                    <div class="flex flex-col gap-2">
+                        <!-- Progress Bar -->
+                        <div class="w-full h-[4px] bg-surface-container-highest rounded-full overflow-hidden mb-2">
+                            <div class="h-full bg-[#6366f1] w-[33%] rounded-full transition-all"></div>
+                        </div>
+                        <label
+                            class="flex items-center gap-3 p-2 rounded hover:bg-surface-container cursor-pointer group transition-colors">
+                            <input checked="" class="task-checkbox sr-only" type="checkbox" />
+                            <div
+                                class="w-4 h-4 border-2 border-outline-variant rounded flex items-center justify-center transition-colors">
+                                <svg class="w-3 h-3 text-white opacity-0 transition-opacity" fill="none"
+                                    stroke="currentColor" viewbox="0 0 24 24">
+                                    <path d="M5 13l4 4L19 7" stroke-linecap="round" stroke-linejoin="round"
+                                        stroke-width="2"></path>
+                                </svg>
+                            </div>
+                            <span
+                                class="font-body-sm text-body-sm text-on-surface-variant line-through group-hover:text-on-surface transition-colors">Review
+                                workflow YAML</span>
+                        </label>
+                        <label
+                            class="flex items-center gap-3 p-2 rounded hover:bg-surface-container cursor-pointer group transition-colors">
+                            <input class="task-checkbox sr-only" type="checkbox" />
+                            <div
+                                class="w-4 h-4 border-2 border-outline-variant rounded flex items-center justify-center transition-colors">
+                                <svg class="w-3 h-3 text-white opacity-0 transition-opacity" fill="none"
+                                    stroke="currentColor" viewbox="0 0 24 24">
+                                    <path d="M5 13l4 4L19 7" stroke-linecap="round" stroke-linejoin="round"
+                                        stroke-width="2"></path>
+                                </svg>
+                            </div>
+                            <span
+                                class="font-body-sm text-body-sm text-on-surface group-hover:text-primary transition-colors">Test
+                                staging deployment</span>
+                        </label>
+                        <label
+                            class="flex items-center gap-3 p-2 rounded hover:bg-surface-container cursor-pointer group transition-colors text-on-surface-variant">
+                            <span class="material-symbols-outlined text-[16px]">add</span>
+                            <span class="font-body-sm text-body-sm">Add subtask</span>
+                        </label>
+                    </div>
+                </div>
+            </div>
+            <!-- Sticky Bottom Action -->
+            <div class="p-4 border-t border-outline-variant/20 bg-surface-container-low/90 backdrop-blur shrink-0">
+                <button
+                    class="w-full py-2.5 bg-[#6366f1] hover:bg-indigo-600 text-white font-label-md text-label-md rounded-lg transition-colors flex items-center justify-center gap-2 shadow-[0_0_15px_rgba(99,102,241,0.2)]">
+                    <span class="material-symbols-outlined text-[18px]">play_arrow</span> Start Task Timer
+                </button>
+            </div>
+        </aside>
+        <!-- Hidden Empty State Template (For reference as requested) -->
+        <div class="hidden flex-1 flex-col items-center justify-center p-xl text-center">
+            <div
+                class="w-32 h-32 rounded-2xl bg-surface-container border border-outline-variant/20 flex items-center justify-center mb-6 shadow-lg shadow-black/20">
+                <span class="material-symbols-outlined text-[48px] text-primary/50 font-light">task_alt</span>
+            </div>
+            <h2 class="font-headline-lg text-headline-lg text-on-surface mb-2">You're all caught up!</h2>
+            <p class="font-body-md text-body-md text-on-surface-variant max-w-md mb-8">No tasks match your current
+                filters. Take a deep breath, or start planning your next move.</p>
+            <button
+                class="px-6 py-2 bg-surface border border-outline-variant/50 text-on-surface rounded-lg hover:bg-surface-container-high transition-colors font-label-md text-label-md flex items-center gap-2">
+                <span class="material-symbols-outlined text-[18px]">add</span> Create New Task
+            </button>
+        </div>
+    </main>
+</body>
+
+</html>

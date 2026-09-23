@@ -1,0 +1,253 @@
+@import "tailwindcss";
+
+/* DayOS Theme - CSS Custom Properties */
+:root {
+  --background: #131315;
+  --surface: #131315;
+  --surface-dim: #131315;
+  --surface-bright: #39393b;
+  --surface-container-lowest: #0e0e10;
+  --surface-container-low: #1c1b1d;
+  --surface-container: #201f22;
+  --surface-container-high: #2a2a2c;
+  --surface-container-highest: #353437;
+  --surface-variant: #353437;
+
+  --on-background: #e5e1e4;
+  --on-surface: #e5e1e4;
+  --on-surface-variant: #c7c4d7;
+
+  --primary: #c0c1ff;
+  --primary-container: #8083ff;
+  --on-primary: #1000a9;
+  --on-primary-container: #0d0096;
+  --primary-fixed: #e1e0ff;
+  --primary-fixed-dim: #c0c1ff;
+
+  --secondary: #ddb7ff;
+  --secondary-container: #6f00be;
+  --on-secondary: #490080;
+  --on-secondary-container: #d6a9ff;
+
+  --tertiary: #ffb783;
+  --tertiary-container: #d97721;
+  --on-tertiary: #4f2500;
+  --on-tertiary-container: #452000;
+
+  --error: #ffb4ab;
+  --error-container: #93000a;
+  --on-error: #690005;
+
+  --outline: #908fa0;
+  --outline-variant: #464554;
+}
+
+/* Light mode — applied when html has .light class */
+html.light {
+  --background: #f6f5f9;
+  --surface: #f6f5f9;
+  --surface-dim: #e0e0e4;
+  --surface-bright: #ffffff;
+  --surface-container-lowest: #ffffff;
+  --surface-container-low: #eeedf2;
+  --surface-container: #e8e7ed;
+  --surface-container-high: #dddce4;
+  --surface-container-highest: #d7d6de;
+  --surface-variant: #e4e1ec;
+
+  --on-background: #1b1b1f;
+  --on-surface: #1b1b1f;
+  --on-surface-variant: #46464f;
+
+  --primary: #5b5f9f;
+  --primary-container: #e0e0ff;
+  --on-primary: #ffffff;
+  --on-primary-container: #1a1a4e;
+  --primary-fixed: #e1e0ff;
+  --primary-fixed-dim: #c0c1ff;
+
+  --secondary: #7c4da0;
+  --secondary-container: #eeddff;
+  --on-secondary: #ffffff;
+  --on-secondary-container: #2e0052;
+
+  --tertiary: #9c4000;
+  --tertiary-container: #ffd9c2;
+  --on-tertiary: #ffffff;
+  --on-tertiary-container: #331100;
+
+  --error: #ba1a1a;
+  --error-container: #ffdad6;
+  --on-error: #ffffff;
+  --on-error-container: #410002;
+
+  --outline: #777680;
+  --outline-variant: #c7c6d0;
+}
+
+@theme {
+  --color-background: var(--background);
+  --color-surface: var(--surface);
+  --color-surface-dim: var(--surface-dim);
+  --color-surface-bright: var(--surface-bright);
+  --color-surface-container-lowest: var(--surface-container-lowest);
+  --color-surface-container-low: var(--surface-container-low);
+  --color-surface-container: var(--surface-container);
+  --color-surface-container-high: var(--surface-container-high);
+  --color-surface-container-highest: var(--surface-container-highest);
+  --color-surface-variant: var(--surface-variant);
+
+  --color-on-background: var(--on-background);
+  --color-on-surface: var(--on-surface);
+  --color-on-surface-variant: var(--on-surface-variant);
+
+  --color-primary: var(--primary);
+  --color-primary-container: var(--primary-container);
+  --color-on-primary: var(--on-primary);
+  --color-on-primary-container: var(--on-primary-container);
+  --color-primary-fixed: var(--primary-fixed);
+  --color-primary-fixed-dim: var(--primary-fixed-dim);
+
+  --color-secondary: var(--secondary);
+  --color-secondary-container: var(--secondary-container);
+  --color-on-secondary: var(--on-secondary);
+  --color-on-secondary-container: var(--on-secondary-container);
+
+  --color-tertiary: var(--tertiary);
+  --color-tertiary-container: var(--tertiary-container);
+  --color-on-tertiary: var(--on-tertiary);
+  --color-on-tertiary-container: var(--on-tertiary-container);
+
+  --color-error: var(--error);
+  --color-error-container: var(--error-container);
+  --color-on-error: var(--on-error);
+
+  --color-outline: var(--outline);
+  --color-outline-variant: var(--outline-variant);
+
+  --font-sans: "Inter", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", monospace;
+}
+
+/* Base styles — layer so Tailwind utilities (margins/padding) still win */
+@layer base {
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+}
+
+html, body, #root {
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+}
+
+body {
+  font-family: var(--font-sans);
+  background-color: var(--background);
+  color: var(--on-background);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--outline-variant);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--outline);
+}
+
+/* Selection */
+::selection {
+  background-color: var(--primary-container);
+  color: var(--on-primary-container);
+}
+
+/* No scrollbar utility */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Task checkbox from HTML */
+.task-checkbox {
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--outline);
+  border-radius: 4px;
+  background-color: transparent;
+  cursor: pointer;
+  position: relative;
+  transition: all 0.2s ease;
+}
+
+.task-checkbox:checked {
+  background-color: var(--primary-container);
+  border-color: var(--primary-container);
+}
+
+.task-checkbox:checked::after {
+  content: '';
+  position: absolute;
+  left: 4px;
+  top: 1px;
+  width: 4px;
+  height: 8px;
+  border: solid var(--on-primary-container);
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+
+/* Glass panel styles from HTML */
+.glass-panel {
+  background: rgba(19, 19, 21, 0.8);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(70, 69, 84, 0.2);
+}
+
+/* Hour slot for timetable */
+.hour-slot {
+  height: 60px;
+}
+
+/* Free integer inputs — hide spinner arrows */
+input[type="number"].int-free,
+input.int-free {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+input[type="number"].int-free::-webkit-outer-spin-button,
+input[type="number"].int-free::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+/* Modal form scrollable body */
+.modal-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  padding: 28px;
+  max-height: 70vh;
+  overflow-y: auto;
+}

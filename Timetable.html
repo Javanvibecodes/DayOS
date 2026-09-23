@@ -1,0 +1,546 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <meta content="width=device-width, initial-scale=1.0" name="viewport" />
+    <title>DayOS - Timetable</title>
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap"
+        rel="stylesheet" />
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap"
+        rel="stylesheet" />
+    <link
+        href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap"
+        rel="stylesheet" />
+    <script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "tertiary-container": "#d97721",
+                        "on-tertiary-fixed-variant": "#703700",
+                        "secondary-fixed-dim": "#ddb7ff",
+                        "on-secondary-container": "#d6a9ff",
+                        "on-error-container": "#ffdad6",
+                        "on-tertiary": "#4f2500",
+                        "outline": "#908fa0",
+                        "primary-fixed": "#e1e0ff",
+                        "primary": "#c0c1ff",
+                        "secondary-fixed": "#f0dbff",
+                        "secondary-container": "#6f00be",
+                        "secondary": "#ddb7ff",
+                        "surface-tint": "#c0c1ff",
+                        "surface-variant": "#353437",
+                        "error-container": "#93000a",
+                        "on-error": "#690005",
+                        "background": "#131315",
+                        "surface-container-high": "#2a2a2c",
+                        "inverse-primary": "#494bd6",
+                        "surface-dim": "#131315",
+                        "surface-container-lowest": "#0e0e10",
+                        "on-primary": "#1000a9",
+                        "surface-container-highest": "#353437",
+                        "on-primary-container": "#0d0096",
+                        "error": "#ffb4ab",
+                        "tertiary-fixed": "#ffdcc5",
+                        "primary-container": "#8083ff",
+                        "surface-container": "#201f22",
+                        "on-surface": "#e5e1e4",
+                        "primary-fixed-dim": "#c0c1ff",
+                        "tertiary": "#ffb783",
+                        "inverse-surface": "#e5e1e4",
+                        "surface-bright": "#39393b",
+                        "on-tertiary-fixed": "#301400",
+                        "surface-container-low": "#1c1b1d",
+                        "on-background": "#e5e1e4",
+                        "outline-variant": "#464554",
+                        "inverse-on-surface": "#313032",
+                        "on-primary-fixed": "#07006c",
+                        "surface": "#131315",
+                        "on-secondary-fixed": "#2c0051",
+                        "on-secondary": "#490080",
+                        "on-tertiary-container": "#452000",
+                        "on-primary-fixed-variant": "#2f2ebe",
+                        "on-surface-variant": "#c7c4d7",
+                        "on-secondary-fixed-variant": "#6900b3",
+                        "tertiary-fixed-dim": "#ffb783"
+                    },
+                    borderRadius: {
+                        DEFAULT: "0.25rem",
+                        lg: "0.5rem",
+                        xl: "0.75rem",
+                        full: "9999px"
+                    },
+                    spacing: {
+                        xl: "32px",
+                        "max-width": "1440px",
+                        lg: "24px",
+                        "sidebar-width": "240px",
+                        gutter: "16px",
+                        xs: "4px",
+                        "sidebar-collapsed": "64px",
+                        unit: "4px",
+                        sm: "8px",
+                        md: "16px"
+                    },
+                    fontFamily: {
+                        "body-sm": ["Inter"],
+                        "label-sm": ["Inter"],
+                        "body-md": ["Inter"],
+                        "label-md": ["Inter"],
+                        display: ["Inter"],
+                        "body-lg": ["Inter"],
+                        mono: ["JetBrains Mono"],
+                        "headline-lg": ["Inter"],
+                        "headline-md": ["Inter"]
+                    },
+                    fontSize: {
+                        "body-sm": ["13px", { lineHeight: "18px", letterSpacing: "0.01em", fontWeight: "400" }],
+                        "label-sm": ["11px", { lineHeight: "14px", letterSpacing: "0.05em", fontWeight: "600" }],
+                        "body-md": ["14px", { lineHeight: "20px", letterSpacing: "0em", fontWeight: "400" }],
+                        "label-md": ["12px", { lineHeight: "16px", letterSpacing: "0.02em", fontWeight: "500" }],
+                        display: ["32px", { lineHeight: "40px", letterSpacing: "-0.02em", fontWeight: "600" }],
+                        "body-lg": ["16px", { lineHeight: "24px", letterSpacing: "0em", fontWeight: "400" }],
+                        mono: ["13px", { lineHeight: "20px", fontWeight: "400" }],
+                        "headline-lg": ["24px", { lineHeight: "32px", letterSpacing: "-0.015em", fontWeight: "600" }],
+                        "headline-md": ["20px", { lineHeight: "28px", letterSpacing: "-0.01em", fontWeight: "600" }]
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            background-color: theme('colors.background');
+            color: theme('colors.on-background');
+        }
+
+        /* Hide scrollbar for Chrome, Safari and Opera */
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+
+        /* Hide scrollbar for IE, Edge and Firefox */
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+
+        /* Time grid specific heights */
+        .hour-slot {
+            height: 60px;
+        }
+
+        .half-hour-slot {
+            height: 30px;
+        }
+    </style>
+</head>
+
+<body
+    class="font-body-md text-body-md overflow-hidden bg-background selection:bg-primary-container selection:text-on-primary-container">
+    <!-- App Shell Container -->
+    <div class="flex h-screen w-full relative">
+        <!-- SideNavBar Component -->
+        <nav
+            class="hidden md:flex flex-col h-full p-md bg-surface/80 border-r border-outline-variant/20 backdrop-blur-xl w-sidebar-width shrink-0 z-40 transition-all duration-300">
+            <!-- Header -->
+            <div class="flex items-center gap-sm mb-xl px-sm">
+                <div class="w-8 h-8 rounded-full overflow-hidden shrink-0 border border-outline-variant/30">
+                    <img alt="User Profile" class="w-full h-full object-cover"
+                        data-alt="A minimalist profile avatar illustration of a user in a futuristic midnight setting, using deep zinc and muted indigo tones, sleek corporate aesthetic."
+                        src="https://lh3.googleusercontent.com/aida-public/AB6AXuBVsiZAshved9VIlWAGRzeHD-OTrVqAnMzwiKjmgE5jU3mc0FJblH6ZrPgzF_GX-875QV9orunlGOHJ-lRakeOTy7RyUMIAgTpgA00aBwcp13_0feKrM0z35-zWN09s5O2wuZm79pyriZZdBdMl3dHJ49wugViCsFmNDK2JsEOX07EBuWmDZxX93k5fNw8NRpHkszuo9E8ObeipXvCSi9Obxjk7H01XhOv0PLP7flIK7cW5ANaUt4em" />
+                </div>
+                <div>
+                    <h1 class="font-headline-md text-headline-md font-bold text-on-surface">DayOS</h1>
+                    <p class="font-label-sm text-label-sm text-on-surface-variant">Local-first Productivity</p>
+                </div>
+            </div>
+            <!-- Main Tabs -->
+            <ul class="flex flex-col gap-unit flex-1">
+                <li>
+                    <a class="flex items-center gap-md px-sm py-sm rounded-lg transition-colors duration-200 ease-in-out text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface active:scale-[0.98]"
+                        href="#">
+                        <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">today</span>
+                        <span class="font-label-md text-label-md">Today</span>
+                    </a>
+                </li>
+                <li>
+                    <a class="flex items-center gap-md px-sm py-sm rounded-lg transition-colors duration-200 ease-in-out text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface active:scale-[0.98]"
+                        href="#">
+                        <span class="material-symbols-outlined"
+                            style="font-variation-settings: 'FILL' 0;">checklist</span>
+                        <span class="font-label-md text-label-md">Tasks</span>
+                    </a>
+                </li>
+                <li>
+                    <a class="flex items-center gap-md px-sm py-sm rounded-lg transition-colors duration-200 ease-in-out text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface active:scale-[0.98]"
+                        href="#">
+                        <span class="material-symbols-outlined"
+                            style="font-variation-settings: 'FILL' 0;">emoji_events</span>
+                        <span class="font-label-md text-label-md">Goals</span>
+                    </a>
+                </li>
+                <li>
+                    <a class="flex items-center gap-md px-sm py-sm rounded-lg transition-colors duration-200 ease-in-out text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface active:scale-[0.98]"
+                        href="#">
+                        <span class="material-symbols-outlined"
+                            style="font-variation-settings: 'FILL' 0;">account_tree</span>
+                        <span class="font-label-md text-label-md">Projects</span>
+                    </a>
+                </li>
+                <li>
+                    <a class="flex items-center gap-md px-sm py-sm rounded-lg transition-colors duration-200 ease-in-out text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface active:scale-[0.98]"
+                        href="#">
+                        <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">groups</span>
+                        <span class="font-label-md text-label-md">Meetings</span>
+                    </a>
+                </li>
+                <li>
+                    <a class="flex items-center gap-md px-sm py-sm rounded-lg bg-primary-container text-on-primary-container active:scale-[0.98] transition-colors duration-200 ease-in-out"
+                        href="#">
+                        <span class="material-symbols-outlined"
+                            style="font-variation-settings: 'FILL' 1;">calendar_view_day</span>
+                        <span class="font-label-md text-label-md font-bold">Timetable</span>
+                    </a>
+                </li>
+            </ul>
+            <!-- Footer Tabs -->
+            <ul class="flex flex-col gap-unit mt-auto pt-md border-t border-outline-variant/10">
+                <li>
+                    <a class="flex items-center gap-md px-sm py-sm rounded-lg transition-colors duration-200 ease-in-out text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface active:scale-[0.98]"
+                        href="#">
+                        <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">event</span>
+                        <span class="font-label-md text-label-md">Date</span>
+                    </a>
+                </li>
+                <li>
+                    <a class="flex items-center gap-md px-sm py-sm rounded-lg transition-colors duration-200 ease-in-out text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface active:scale-[0.98]"
+                        href="#">
+                        <span class="material-symbols-outlined"
+                            style="font-variation-settings: 'FILL' 0;">sensors</span>
+                        <span class="font-label-md text-label-md">Status</span>
+                    </a>
+                </li>
+                <li>
+                    <a class="flex items-center gap-md px-sm py-sm rounded-lg transition-colors duration-200 ease-in-out text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface active:scale-[0.98]"
+                        href="#">
+                        <span class="material-symbols-outlined"
+                            style="font-variation-settings: 'FILL' 0;">settings</span>
+                        <span class="font-label-md text-label-md">Settings</span>
+                    </a>
+                </li>
+            </ul>
+        </nav>
+        <!-- Main Content Area -->
+        <div class="flex-1 flex flex-col h-full relative overflow-hidden bg-background">
+            <!-- TopAppBar Component -->
+            <header
+                class="flex justify-between items-center px-lg bg-surface/80 border-b border-outline-variant/20 backdrop-blur-xl h-16 w-full z-30 shrink-0">
+                <div class="flex items-center gap-md w-1/3">
+                    <!-- Search Bar (on_left) -->
+                    <div class="relative w-full max-w-xs hidden sm:block">
+                        <span
+                            class="material-symbols-outlined absolute left-sm top-1/2 -translate-y-1/2 text-on-surface-variant text-[18px]">search</span>
+                        <input
+                            class="w-full bg-surface-container-low border border-outline-variant/30 rounded-full py-1.5 pl-xl pr-sm text-body-sm text-on-surface placeholder:text-on-surface-variant focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all"
+                            placeholder="Search DayOS..." type="text" />
+                    </div>
+                </div>
+                <!-- Center Title (Mobile mostly, but keeping structural balance) -->
+                <div class="flex justify-center w-1/3 md:hidden">
+                    <h2 class="font-headline-md text-headline-md font-bold text-on-surface">DayOS</h2>
+                </div>
+                <div class="flex justify-end items-center gap-md w-1/3">
+                    <button
+                        class="text-on-surface-variant hover:text-primary transition-colors cursor-pointer active:scale-95">
+                        <span class="material-symbols-outlined">notifications</span>
+                    </button>
+                    <button
+                        class="text-on-surface-variant hover:text-primary transition-colors cursor-pointer active:scale-95">
+                        <span class="material-symbols-outlined">help</span>
+                    </button>
+                    <button
+                        class="hidden sm:flex items-center justify-center bg-primary text-on-primary font-label-md text-label-md px-md py-1.5 rounded-full hover:bg-primary-fixed-dim transition-colors cursor-pointer active:scale-95 border border-[#27272a]">
+                        New Task
+                    </button>
+                </div>
+            </header>
+            <!-- Timetable Canvas -->
+            <main class="flex-1 overflow-y-auto no-scrollbar relative p-md md:p-lg bg-surface-dim">
+                <div
+                    class="max-w-max-width mx-auto h-full flex flex-col bg-surface rounded-xl border border-outline-variant/30 shadow-[0_8px_30px_rgb(0,0,0,0.12)] overflow-hidden">
+                    <!-- Timetable Header -->
+                    <div
+                        class="flex items-center justify-between px-lg py-md border-b border-outline-variant/20 bg-surface-container-low">
+                        <div class="flex items-center gap-sm">
+                            <h2 class="font-headline-lg text-headline-lg text-on-surface">Today</h2>
+                            <span class="text-on-surface-variant font-body-md ml-2">Thursday, Oct 24</span>
+                        </div>
+                        <div class="flex gap-2">
+                            <button
+                                class="p-1.5 rounded bg-surface-container border border-outline-variant/30 text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-colors">
+                                <span class="material-symbols-outlined text-[20px]">chevron_left</span>
+                            </button>
+                            <button
+                                class="px-sm py-1.5 rounded bg-surface-container border border-outline-variant/30 text-on-surface-variant font-label-md hover:text-on-surface hover:bg-surface-container-high transition-colors">
+                                Today
+                            </button>
+                            <button
+                                class="p-1.5 rounded bg-surface-container border border-outline-variant/30 text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-colors">
+                                <span class="material-symbols-outlined text-[20px]">chevron_right</span>
+                            </button>
+                        </div>
+                    </div>
+                    <!-- Timetable Grid -->
+                    <div class="flex-1 overflow-y-auto relative no-scrollbar" id="timetable-scroll">
+                        <!-- Grid Container -->
+                        <div class="relative min-w-[600px] h-[900px]"> <!-- 15 hours * 60px -->
+                            <!-- Current Time Line (e.g., 10:15 = 2.25 hours from 8:00 = 135px) -->
+                            <div class="absolute left-16 right-0 h-px bg-error z-20 pointer-events-none flex items-center"
+                                style="top: 135px;">
+                                <div class="absolute left-0 -translate-x-full pr-2 flex items-center h-full">
+                                    <span
+                                        class="text-error font-mono text-[10px] font-bold bg-background px-1 rounded">10:15</span>
+                                </div>
+                                <div class="w-2 h-2 rounded-full bg-error absolute -left-1"></div>
+                            </div>
+                            <!-- Hours Column & Grid Lines -->
+                            <div class="absolute inset-0 flex">
+                                <!-- Time Labels -->
+                                <div
+                                    class="w-16 shrink-0 border-r border-outline-variant/20 flex flex-col pt-sm bg-surface">
+                                    <!-- Loop 08:00 to 22:00 -->
+                                    <div class="hour-slot relative flex justify-end pr-sm">
+                                        <span class="text-on-surface-variant font-mono text-[11px] -mt-2">08:00</span>
+                                    </div>
+                                    <div class="hour-slot relative flex justify-end pr-sm">
+                                        <span class="text-on-surface-variant font-mono text-[11px] -mt-2">09:00</span>
+                                    </div>
+                                    <div class="hour-slot relative flex justify-end pr-sm">
+                                        <span class="text-on-surface-variant font-mono text-[11px] -mt-2">10:00</span>
+                                    </div>
+                                    <div class="hour-slot relative flex justify-end pr-sm">
+                                        <span class="text-on-surface-variant font-mono text-[11px] -mt-2">11:00</span>
+                                    </div>
+                                    <div class="hour-slot relative flex justify-end pr-sm">
+                                        <span class="text-on-surface-variant font-mono text-[11px] -mt-2">12:00</span>
+                                    </div>
+                                    <div class="hour-slot relative flex justify-end pr-sm">
+                                        <span class="text-on-surface-variant font-mono text-[11px] -mt-2">13:00</span>
+                                    </div>
+                                    <div class="hour-slot relative flex justify-end pr-sm">
+                                        <span class="text-on-surface-variant font-mono text-[11px] -mt-2">14:00</span>
+                                    </div>
+                                    <div class="hour-slot relative flex justify-end pr-sm">
+                                        <span class="text-on-surface-variant font-mono text-[11px] -mt-2">15:00</span>
+                                    </div>
+                                    <div class="hour-slot relative flex justify-end pr-sm">
+                                        <span class="text-on-surface-variant font-mono text-[11px] -mt-2">16:00</span>
+                                    </div>
+                                    <div class="hour-slot relative flex justify-end pr-sm">
+                                        <span class="text-on-surface-variant font-mono text-[11px] -mt-2">17:00</span>
+                                    </div>
+                                    <div class="hour-slot relative flex justify-end pr-sm">
+                                        <span class="text-on-surface-variant font-mono text-[11px] -mt-2">18:00</span>
+                                    </div>
+                                    <div class="hour-slot relative flex justify-end pr-sm">
+                                        <span class="text-on-surface-variant font-mono text-[11px] -mt-2">19:00</span>
+                                    </div>
+                                    <div class="hour-slot relative flex justify-end pr-sm">
+                                        <span class="text-on-surface-variant font-mono text-[11px] -mt-2">20:00</span>
+                                    </div>
+                                    <div class="hour-slot relative flex justify-end pr-sm">
+                                        <span class="text-on-surface-variant font-mono text-[11px] -mt-2">21:00</span>
+                                    </div>
+                                    <div class="hour-slot relative flex justify-end pr-sm">
+                                        <span class="text-on-surface-variant font-mono text-[11px] -mt-2">22:00</span>
+                                    </div>
+                                </div>
+                                <!-- Horizontal Lines -->
+                                <div class="flex-1 flex flex-col pt-sm relative group cursor-pointer bg-surface">
+                                    <!-- Interactive empty slots for hover + Quick Add -->
+                                    <div class="absolute inset-0 z-0 flex flex-col">
+                                        <!-- Generating rows for lines and interaction -->
+                                        <!-- Using JS or repeating HTML for 15 hours -->
+                                        <div
+                                            class="hour-slot border-b border-outline-variant/10 relative hover:bg-surface-container-high/50 group/slot transition-colors">
+                                            <div
+                                                class="absolute inset-y-0 left-0 flex items-center opacity-0 group-hover/slot:opacity-100 pl-sm">
+                                                <span class="text-primary font-label-sm">+ Add</span>
+                                            </div>
+                                        </div>
+                                        <div
+                                            class="hour-slot border-b border-outline-variant/10 relative hover:bg-surface-container-high/50 group/slot transition-colors">
+                                            <div
+                                                class="absolute inset-y-0 left-0 flex items-center opacity-0 group-hover/slot:opacity-100 pl-sm">
+                                                <span class="text-primary font-label-sm">+ Add</span>
+                                            </div>
+                                        </div>
+                                        <div
+                                            class="hour-slot border-b border-outline-variant/10 relative hover:bg-surface-container-high/50 group/slot transition-colors">
+                                            <div
+                                                class="absolute inset-y-0 left-0 flex items-center opacity-0 group-hover/slot:opacity-100 pl-sm">
+                                                <span class="text-primary font-label-sm">+ Add</span>
+                                            </div>
+                                        </div>
+                                        <div
+                                            class="hour-slot border-b border-outline-variant/10 relative hover:bg-surface-container-high/50 group/slot transition-colors">
+                                            <div
+                                                class="absolute inset-y-0 left-0 flex items-center opacity-0 group-hover/slot:opacity-100 pl-sm">
+                                                <span class="text-primary font-label-sm">+ Add</span>
+                                            </div>
+                                        </div>
+                                        <div
+                                            class="hour-slot border-b border-outline-variant/10 relative hover:bg-surface-container-high/50 group/slot transition-colors">
+                                            <div
+                                                class="absolute inset-y-0 left-0 flex items-center opacity-0 group-hover/slot:opacity-100 pl-sm">
+                                                <span class="text-primary font-label-sm">+ Add</span>
+                                            </div>
+                                        </div>
+                                        <div
+                                            class="hour-slot border-b border-outline-variant/10 relative hover:bg-surface-container-high/50 group/slot transition-colors">
+                                            <div
+                                                class="absolute inset-y-0 left-0 flex items-center opacity-0 group-hover/slot:opacity-100 pl-sm">
+                                                <span class="text-primary font-label-sm">+ Add</span>
+                                            </div>
+                                        </div>
+                                        <div
+                                            class="hour-slot border-b border-outline-variant/10 relative hover:bg-surface-container-high/50 group/slot transition-colors">
+                                            <div
+                                                class="absolute inset-y-0 left-0 flex items-center opacity-0 group-hover/slot:opacity-100 pl-sm">
+                                                <span class="text-primary font-label-sm">+ Add</span>
+                                            </div>
+                                        </div>
+                                        <div
+                                            class="hour-slot border-b border-outline-variant/10 relative hover:bg-surface-container-high/50 group/slot transition-colors">
+                                            <div
+                                                class="absolute inset-y-0 left-0 flex items-center opacity-0 group-hover/slot:opacity-100 pl-sm">
+                                                <span class="text-primary font-label-sm">+ Add</span>
+                                            </div>
+                                        </div>
+                                        <div
+                                            class="hour-slot border-b border-outline-variant/10 relative hover:bg-surface-container-high/50 group/slot transition-colors">
+                                            <div
+                                                class="absolute inset-y-0 left-0 flex items-center opacity-0 group-hover/slot:opacity-100 pl-sm">
+                                                <span class="text-primary font-label-sm">+ Add</span>
+                                            </div>
+                                        </div>
+                                        <div
+                                            class="hour-slot border-b border-outline-variant/10 relative hover:bg-surface-container-high/50 group/slot transition-colors">
+                                            <div
+                                                class="absolute inset-y-0 left-0 flex items-center opacity-0 group-hover/slot:opacity-100 pl-sm">
+                                                <span class="text-primary font-label-sm">+ Add</span>
+                                            </div>
+                                        </div>
+                                        <div
+                                            class="hour-slot border-b border-outline-variant/10 relative hover:bg-surface-container-high/50 group/slot transition-colors">
+                                            <div
+                                                class="absolute inset-y-0 left-0 flex items-center opacity-0 group-hover/slot:opacity-100 pl-sm">
+                                                <span class="text-primary font-label-sm">+ Add</span>
+                                            </div>
+                                        </div>
+                                        <div
+                                            class="hour-slot border-b border-outline-variant/10 relative hover:bg-surface-container-high/50 group/slot transition-colors">
+                                            <div
+                                                class="absolute inset-y-0 left-0 flex items-center opacity-0 group-hover/slot:opacity-100 pl-sm">
+                                                <span class="text-primary font-label-sm">+ Add</span>
+                                            </div>
+                                        </div>
+                                        <div
+                                            class="hour-slot border-b border-outline-variant/10 relative hover:bg-surface-container-high/50 group/slot transition-colors">
+                                            <div
+                                                class="absolute inset-y-0 left-0 flex items-center opacity-0 group-hover/slot:opacity-100 pl-sm">
+                                                <span class="text-primary font-label-sm">+ Add</span>
+                                            </div>
+                                        </div>
+                                        <div
+                                            class="hour-slot border-b border-outline-variant/10 relative hover:bg-surface-container-high/50 group/slot transition-colors">
+                                            <div
+                                                class="absolute inset-y-0 left-0 flex items-center opacity-0 group-hover/slot:opacity-100 pl-sm">
+                                                <span class="text-primary font-label-sm">+ Add</span>
+                                            </div>
+                                        </div>
+                                        <div
+                                            class="hour-slot border-b border-outline-variant/10 relative hover:bg-surface-container-high/50 group/slot transition-colors">
+                                            <div
+                                                class="absolute inset-y-0 left-0 flex items-center opacity-0 group-hover/slot:opacity-100 pl-sm">
+                                                <span class="text-primary font-label-sm">+ Add</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <!-- Event Blocks Layer (Absolute positioned within flex-1) -->
+                                    <div class="absolute inset-0 pt-sm z-10 pointer-events-none">
+                                        <!-- pt-sm offsets the grid line alignment -->
+                                        <!-- 09:00 - 11:30: 'ATLAS Development' (Blue category, Meeting block) -->
+                                        <!-- Top = 1 hour (60px), Height = 2.5 hours (150px) -->
+                                        <div class="absolute left-sm right-sm bg-primary/20 border-l-4 border-primary rounded-r-md px-sm py-xs shadow-sm cursor-pointer pointer-events-auto hover:bg-primary/30 transition-colors"
+                                            style="top: 60px; height: 148px;">
+                                            <div class="flex justify-between items-start">
+                                                <h3 class="font-label-md text-primary font-bold">ATLAS Development</h3>
+                                                <span
+                                                    class="material-symbols-outlined text-[14px] text-primary">groups</span>
+                                            </div>
+                                            <p class="font-body-sm text-primary/80 mt-0.5">09:00 - 11:30</p>
+                                        </div>
+                                        <!-- 11:30 - 12:30: 'Finish Dashboard' (Green category, Task block) -->
+                                        <!-- Top = 3.5 hours (210px), Height = 1 hour (60px) -->
+                                        <!-- Representing Green with a tertiary/success-like color mapping -->
+                                        <div class="absolute left-sm right-sm bg-[#064e3b]/40 border-l-4 border-[#10b981] rounded-r-md px-sm py-xs shadow-sm cursor-pointer pointer-events-auto hover:bg-[#064e3b]/60 transition-colors"
+                                            style="top: 210px; height: 58px;">
+                                            <div class="flex justify-between items-start">
+                                                <h3 class="font-label-md text-[#34d399] font-bold">Finish Dashboard</h3>
+                                                <span
+                                                    class="material-symbols-outlined text-[14px] text-[#34d399]">checklist</span>
+                                            </div>
+                                            <p class="font-body-sm text-[#34d399]/80 mt-0.5">11:30 - 12:30</p>
+                                        </div>
+                                        <!-- 14:00 - 15:30: 'Team Sync' (Purple category, Meeting block) -->
+                                        <!-- Top = 6 hours (360px), Height = 1.5 hours (90px) -->
+                                        <!-- USING GHOST DRAG EFFECT HERE -->
+                                        <div class="absolute left-sm right-sm cursor-grab pointer-events-auto z-20 group scale-[1.02] transition-transform"
+                                            style="top: 360px; height: 88px;">
+                                            <!-- Ghost outline behind -->
+                                            <div
+                                                class="absolute inset-0 border-2 border-dashed border-secondary/50 rounded-md bg-secondary/5 -z-10">
+                                            </div>
+                                            <!-- Dragging element -->
+                                            <div
+                                                class="w-full h-full bg-secondary-container/80 backdrop-blur-sm border border-secondary/50 border-l-4 border-l-secondary rounded-r-md px-sm py-xs shadow-[0_10px_40px_rgb(0,0,0,0.5)]">
+                                                <div class="flex justify-between items-start">
+                                                    <h3 class="font-label-md text-on-secondary-container font-bold">Team
+                                                        Sync</h3>
+                                                    <span
+                                                        class="material-symbols-outlined text-[14px] text-on-secondary-container">drag_indicator</span>
+                                                </div>
+                                                <p class="font-body-sm text-on-secondary-container/80 mt-0.5">14:00 -
+                                                    15:30</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+    <script>
+        // Scroll timetable to 8AM on load to ensure visibility
+        document.addEventListener('DOMContentLoaded', () => {
+            const scrollArea = document.getElementById('timetable-scroll');
+            if (scrollArea) {
+                // Scroll down a bit to show 8am clearly
+                scrollArea.scrollTop = 20;
+            }
+        });
+    </script>
+</body>
+
+</html>
