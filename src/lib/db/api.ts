@@ -30,6 +30,12 @@ import type {
   CreatePlannerTemplateRequest,
   DayTemplate,
   CreateDayTemplateRequest,
+  Note,
+  NoteFolder,
+  CreateNoteRequest,
+  UpdateNoteRequest,
+  CreateNoteFolderRequest,
+  UpdateNoteFolderRequest,
 } from '@/types';
 
 // Task commands
@@ -207,4 +213,37 @@ export const dayTemplateApi = {
 
   delete: (id: string): Promise<void> =>
     invoke('delete_day_template', { id }),
+};
+
+// Notes
+export const noteApi = {
+  create: (req: CreateNoteRequest): Promise<Note> =>
+    invoke('create_note', { req }),
+
+  getAll: (): Promise<Note[]> =>
+    invoke('get_all_notes'),
+
+  getByFolder: (folderId: string): Promise<Note[]> =>
+    invoke('get_notes_by_folder', { folderId }),
+
+  update: (req: UpdateNoteRequest): Promise<Note> =>
+    invoke('update_note', { req }),
+
+  delete: (id: string): Promise<void> =>
+    invoke('delete_note', { id }),
+};
+
+// Note folders
+export const noteFolderApi = {
+  create: (req: CreateNoteFolderRequest): Promise<NoteFolder> =>
+    invoke('create_note_folder', { req }),
+
+  getAll: (): Promise<NoteFolder[]> =>
+    invoke('get_all_note_folders'),
+
+  update: (req: UpdateNoteFolderRequest): Promise<NoteFolder> =>
+    invoke('update_note_folder', { req }),
+
+  delete: (id: string): Promise<void> =>
+    invoke('delete_note_folder', { id }),
 };

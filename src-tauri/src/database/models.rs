@@ -328,3 +328,49 @@ pub struct CreateDayTemplateRequest {
     pub name: String,
     pub payload: String,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NoteFolder {
+    pub id: String,
+    pub name: String,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Note {
+    pub id: String,
+    pub title: String,
+    pub content: String,
+    pub folder_id: Option<String>,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CreateNoteFolderRequest {
+    pub name: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UpdateNoteFolderRequest {
+    pub id: String,
+    pub name: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CreateNoteRequest {
+    pub title: Option<String>,
+    pub content: Option<String>,
+    /// None or empty string = unfiled
+    pub folder_id: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UpdateNoteRequest {
+    pub id: String,
+    pub title: Option<String>,
+    pub content: Option<String>,
+    /// None = leave unchanged; Some("") = clear; Some(id) = set
+    pub folder_id: Option<String>,
+}

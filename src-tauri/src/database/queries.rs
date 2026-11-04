@@ -988,3 +988,127 @@ pub fn delete_day_template(conn: &Connection, id: &str) -> Result<()> {
     conn.execute("DELETE FROM day_templates WHERE id = ?1", params![id])?;
     Ok(())
 }
+
+// Notes
+const NOTE_FOLDER_COLS: &str = "id, name, created_at, updated_at";
+const NOTE_COLS: &str = "id, title, content, folder_id, created_at, updated_at";
+
+fn map_note_folder(row: &rusqlite::Row) -> Result<NoteFolder> {
+    Ok(NoteFolder {
+        id: row.get(0)?,
+        name: row.get(1)?,
+        created_at: row.get(2)?,
+        updated_at: row.get(3)?,
+    })
+}
+
+fn map_note(row: &rusqlite::Row) -> Result<Note> {
+    Ok(Note {
+        id: row.get(0)?,
+        title: row.get(1)?,
+        content: row.get(2)?,
+        folder_id: row.get(3)?,
+        created_at: row.get(4)?,
+        updated_at: row.get(5)?,
+    })
+}
+
+pub fn create_note_folder(conn: &Connection, req: CreateNoteFolderRequest) -> Result<NoteFolder> {
+    let id = Uuid::new_v4().to_string();
+    conn.execute(
+        "INSERT INTO note_folders (id, name) VALUES (?1, ?2)",
+        params![id, req.name],
+    )?;
+    let sql = format!("SELECT {} FROM note_folders WHERE id = ?1", NOTE_FOLDER_COLS);
+    conn.query_row(&sql, params![id], map_note_folder)
+}
+
+pub fn get_all_note_folders(conn: &Connection) -> Result<Vec<NoteFolder>> {
+    let sql = format!("SELECT {} FROM note_folders ORDER BY name ASC", NOTE_FOLDER_COLS);
+    let mut stmt = conn.prepare(&sql)?;
+    let rows = stmt.query_map([], map_note_folder)?;
+    rows.collect()
+}
+
+pub fn update_note_folder(conn: &Connection, req: UpdateNoteFolderRequest) -> Result<NoteFolder> {
+    if let Some(name) = req.name {
+        conn.execute(
+            "UPDATE note_folders SET name = ?1, updated_at = datetime('now') WHERE id = ?2",
+            params![name, req.id],
+        )?;
+    }
+    let sql = format!("SELECT {} FROM note_folders WHERE id = ?1", NOTE_FOLDER_COLS);
+    conn.query_row(&sql, params![req.id], map_note_folder)
+}
+
+pub fn delete_note_folder(conn: &Connection, id: &str) -> Result<()> {
+    // Notes keep existing (FK ON DELETE SET NULL) — folder_id cleared by SQLite
+    conn.execute("DELETE FROM note_folders WHERE id = ?1", params![id])?;
+    Ok(())
+}
+
+pub fn create_note(conn: &Connection, req: CreateNoteRequest) -> Result<Note> {
+    let id = Uuid::new_v4().to_string();
+    let title = req.title.unwrap_or_default();
+    let content = req.content.unwrap_or_default();
+    let folder_id = req.folder_id.filter(|s| !s.is_empty());
+    conn.execute(
+        "INSERT INTO notes (id, title, content, folder_id) VALUES (?1, ?2, ?3, ?4)",
+        params![id, title, content, folder_id],
+    )?;
+    let sql = format!("SELECT {} FROM notes WHERE id = ?1", NOTE_COLS);
+    conn.query_row(&sql, params![id], map_note)
+}
+
+pub fn get_all_notes(conn: &Connection) -> Result<Vec<Note>> {
+    let sql = format!(
+        "SELECT {} FROM notes ORDER BY updated_at DESC",
+        NOTE_COLS
+    );
+    let mut stmt = conn.prepare(&sql)?;
+    let rows = stmt.query_map([], map_note)?;
+    rows.collect()
+}
+
+pub fn get_notes_by_folder(conn: &Connection, folder_id: &str) -> Result<Vec<Note>> {
+    let sql = format!(
+        "SELECT {} FROM notes WHERE folder_id = ?1 ORDER BY updated_at DESC",
+        NOTE_COLS
+    );
+    let mut stmt = conn.prepare(&sql)?;
+    let rows = stmt.query_map(params![folder_id], map_note)?;
+    rows.collect()
+}
+
+pub fn update_note(conn: &Connection, req: UpdateNoteRequest) -> Result<Note> {
+    if let Some(title) = req.title {
+        conn.execute(
+            "UPDATE notes SET title = ?1, updated_at = datetime('now') WHERE id = ?2",
+            params![title, req.id],
+        )?;
+    }
+    if let Some(content) = req.content {
+        conn.execute(
+            "UPDATE notes SET content = ?1, updated_at = datetime('now') WHERE id = ?2",
+            params![content, req.id],
+        )?;
+    }
+    if let Some(folder_id) = req.folder_id {
+        let fid: Option<String> = if folder_id.is_empty() {
+            None
+        } else {
+            Some(folder_id)
+        };
+        conn.execute(
+            "UPDATE notes SET folder_id = ?1, updated_at = datetime('now') WHERE id = ?2",
+            params![fid, req.id],
+        )?;
+    }
+    let sql = format!("SELECT {} FROM notes WHERE id = ?1", NOTE_COLS);
+    conn.query_row(&sql, params![req.id], map_note)
+}
+
+pub fn delete_note(conn: &Connection, id: &str) -> Result<()> {
+    conn.execute("DELETE FROM notes WHERE id = ?1", params![id])?;
+    Ok(())
+}

@@ -10,6 +10,7 @@ import { useSettingsStore } from '@/stores/settingsStore';
 import { useCategoryStore } from '@/stores/categoryStore';
 import { playAlarm, playNotificationChime, stopAlarm, onAlarmChange, isAlarmRinging } from '@/services/alarmService';
 import { isEnabled as autostartIsEnabled } from '@tauri-apps/plugin-autostart';
+import { ToastHost } from '@/components/ToastHost';
 
 // Pages
 import { TodayPage } from '@/pages/TodayPage';
@@ -21,6 +22,7 @@ import { TimetablePage } from '@/pages/TimetablePage';
 import { SettingsPage } from '@/pages/SettingsPage';
 import { PomodoroPage } from '@/pages/PomodoroPage';
 import { RoutinesPage } from '@/pages/RoutinesPage';
+import { NotesPage } from '@/pages/NotesPage';
 import {
   SHORTCUT_ACTIONS,
   SHORTCUT_LABELS,
@@ -341,6 +343,8 @@ function App() {
         return <PomodoroPage />;
       case 'routines':
         return <RoutinesPage />;
+      case 'notes':
+        return <NotesPage />;
       case 'settings':
         return <SettingsPage />;
       case 'today':
@@ -398,6 +402,9 @@ function App() {
         onOpenProjectModal={() => { setCommandPaletteOpen(false); handleOpenProjectModal(); }}
         onOpenMeetingModal={() => { setCommandPaletteOpen(false); handleOpenMeetingModal(); }}
       />
+
+      {/* Global toast notifications */}
+      <ToastHost />
 
       {/* Repeat-until-stopped alarm banner */}
       {alarmRinging && (

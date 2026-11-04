@@ -6,6 +6,7 @@ import { useGoalStore } from '@/stores/goalStore';
 import { useProjectStore } from '@/stores/projectStore';
 import { useCategoryStore } from '@/stores/categoryStore';
 import { dayTemplateApi } from '@/lib/db/api';
+import { toast } from '@/stores/toastStore';
 import type { DayTemplate, Task, TaskPriority } from '@/types';
 
 const HOURS = Array.from({ length: 24 }, (_, i) => i); // 00:00 to 23:00
@@ -80,7 +81,6 @@ export function TimetablePage({ onNewTask }: TimetablePageProps) {
   const [addMinutes, setAddMinutes] = useState(DEFAULT_TASK_MINUTES);
   const [templateName, setTemplateName] = useState('');
   const [dayTemplates, setDayTemplates] = useState<DayTemplate[]>([]);
-  const [toast, setToast] = useState<string | null>(null);
 
   useEffect(() => {
     void loadCategories();
@@ -95,11 +95,6 @@ export function TimetablePage({ onNewTask }: TimetablePageProps) {
     scrollRef.current.scrollTop = target;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [viewMode]);
-
-  const showToast = (msg: string) => {
-    setToast(msg);
-    setTimeout(() => setToast(null), 2500);
-  };
 
   const dateStr = format(currentDate, 'yyyy-MM-dd');
 
@@ -164,27 +159,25 @@ export function TimetablePage({ onNewTask }: TimetablePageProps) {
         priority: 'medium',
       });
       setAddTitle('');
-      showToast('Task added');
-    } catch (e) {
-      console.error(e);
-      showToast('Failed to add task');
+      toast.success('Task added to your day');
+    } catch {
+      toast.error('Could not add the task');
     }
   };
 
   const removePlanTask = async (id: string) => {
     try {
       await deleteTask(id);
-      showToast('Task deleted');
-    } catch (e) {
-      console.error(e);
-      showToast('Failed to delete task');
+      toast.success('Task deleted');
+    } catch {
+      toast.error('Could not delete the task');
     }
   };
 
   const saveDayTemplate = async () => {
     const name = templateName.trim();
     if (!name) {
-      showToast('Template name is required');
+      toast.error('Enter a template name');
       return;
     }
     try {
@@ -200,10 +193,9 @@ export function TimetablePage({ onNewTask }: TimetablePageProps) {
       const tpl = await dayTemplateApi.create({ name, payload });
       setDayTemplates((p) => [tpl, ...p]);
       setTemplateName('');
-      showToast('Day template saved');
-    } catch (e) {
-      console.error(e);
-      showToast('Failed to save template');
+      toast.success('Day template saved');
+    } catch {
+      toast.error('Could not save the day template');
     }
   };
 
@@ -233,10 +225,9 @@ export function TimetablePage({ onNewTask }: TimetablePageProps) {
         });
       }
       await loadTasks();
-      showToast(`Applied “${tpl.name}”`);
-    } catch (e) {
-      console.error(e);
-      showToast('Failed to apply template');
+      toast.success(`Applied “${tpl.name}”`);
+    } catch {
+      toast.error('Could not apply the day template');
     }
   };
 
@@ -244,8 +235,9 @@ export function TimetablePage({ onNewTask }: TimetablePageProps) {
     try {
       await dayTemplateApi.delete(id);
       setDayTemplates((p) => p.filter((t) => t.id !== id));
-    } catch (e) {
-      console.error(e);
+      toast.success('Day template deleted');
+    } catch {
+      toast.error('Could not delete the day template');
     }
   };
 
@@ -601,12 +593,6 @@ export function TimetablePage({ onNewTask }: TimetablePageProps) {
               </div>
             </div>
           </div>
-        </div>
-      )}
-
-      {toast && (
-        <div className="fixed bottom-[32px] left-1/2 -translate-x-1/2 bg-primary-container text-on-primary-container px-[20px] py-[12px] rounded-xl text-[13px] font-semibold shadow-lg z-50">
-          {toast}
         </div>
       )}
     </div>

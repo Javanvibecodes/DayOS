@@ -244,7 +244,7 @@ export interface TaskStats {
 }
 
 // Navigation
-export type NavItem = 'today' | 'tasks' | 'goals' | 'projects' | 'meetings' | 'timetable' | 'pomodoro' | 'routines' | 'settings';
+export type NavItem = 'today' | 'tasks' | 'goals' | 'projects' | 'meetings' | 'timetable' | 'pomodoro' | 'routines' | 'notes' | 'settings';
 
 // Routines
 export interface Routine {
@@ -355,6 +355,47 @@ export interface DayTemplate {
 export interface CreateDayTemplateRequest {
   name: string;
   payload: string;
+}
+
+// Notes
+export interface NoteFolder {
+  id: string;
+  name: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Note {
+  id: string;
+  title: string;
+  content: string;
+  folder_id: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CreateNoteFolderRequest {
+  name: string;
+}
+
+export interface UpdateNoteFolderRequest {
+  id: string;
+  name?: string;
+}
+
+export interface CreateNoteRequest {
+  title?: string;
+  content?: string;
+  /** None or empty = unfiled */
+  folder_id?: string;
+}
+
+export interface UpdateNoteRequest {
+  id: string;
+  title?: string;
+  content?: string;
+  /** None = unchanged; '' = clear; id = set */
+  folder_id?: string;
 }
 
 // Keyboard shortcuts

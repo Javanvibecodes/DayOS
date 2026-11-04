@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRoutineStore } from '@/stores/routineStore';
 import { useSettingsStore } from '@/stores/settingsStore';
+import { toast } from '@/stores/toastStore';
 
 function formatMins(total: number): string {
   const m = Math.max(0, Math.floor(total));
@@ -53,7 +54,6 @@ export function RoutinesPage() {
   } = useRoutineStore();
   const settings = useSettingsStore();
 
-  const [toast, setToast] = useState<string | null>(null);
   const [editingRoutineId, setEditingRoutineId] = useState<string | null>(null);
   const [routineName, setRoutineName] = useState('');
   const [routineStart, setRoutineStart] = useState('');
@@ -64,11 +64,6 @@ export function RoutinesPage() {
   const [run, setRun] = useState<RunState | null>(null);
   const runRef = useRef<RunState | null>(null);
   runRef.current = run;
-
-  const showToast = (msg: string) => {
-    setToast(msg);
-    setTimeout(() => setToast(null), 2500);
-  };
 
   useEffect(() => {
     void loadRoutines();
@@ -108,7 +103,7 @@ export function RoutinesPage() {
   const startRun = (routineId: string) => {
     const tasks = tasksFor(routineId);
     if (tasks.length === 0) {
-      showToast('Add tasks to this routine first');
+      toast.info('Add at least one block before starting');
       return;
     }
     setRun({ routineId, taskIndex: 0, taskElapsed: 0, totalElapsed: 0, running: true });
@@ -121,10 +116,10 @@ export function RoutinesPage() {
   const skipTask = () => {
     if (!run) return;
     if (!canSkipCurrent()) {
-      showToast(
+      toast.info(
         requireHalf
-          ? `Skip blocked — reach half (${formatMins((currentTask?.duration_minutes ?? 0) / 2)}) first`
-          : 'Cannot skip',
+          ? `You can skip once ${formatMins((currentTask?.duration_minutes ?? 0) / 2)} of this block has passed`
+          : 'This block cannot be skipped yet',
       );
       return;
     }
@@ -133,7 +128,7 @@ export function RoutinesPage() {
     const boostedTotal = run.totalElapsed + remainingInTask;
     if (run.taskIndex + 1 >= currentTasks.length) {
       setRun(null);
-      showToast('Routine complete');
+      toast.success('Routine complete');
       return;
     }
     setRun({
@@ -172,7 +167,7 @@ export function RoutinesPage() {
     if (run?.routineId === id) setRun(null);
     await deleteRoutine(id);
     if (editingRoutineId === id) closeEditRoutine();
-    showToast('Routine deleted');
+    toast.success('Routine deleted');
   };
 
   const addRoutineTask = async () => {
@@ -202,7 +197,7 @@ export function RoutinesPage() {
 
   const saveRoutine = async () => {
     if (!routineName.trim()) {
-      showToast('Name is required');
+      toast.error('Enter a routine name');
       return;
     }
     if (editingRoutineId === 'new') {
@@ -224,10 +219,10 @@ export function RoutinesPage() {
       setEditingRoutineId(r.id);
       setTaskTitle('');
       setTaskDuration(10);
-      showToast(
+      toast.success(
         pendingTasks.length > 0
           ? `Routine created with ${pendingTasks.length} block${pendingTasks.length === 1 ? '' : 's'}`
-          : 'Routine created — add blocks below',
+          : 'Routine created — add blocks to get started',
       );
       return;
     }
@@ -238,12 +233,12 @@ export function RoutinesPage() {
         start_time: routineStart || undefined,
         days: routineDays.join(','),
       });
-      showToast('Routine updated');
+      toast.success('Routine updated');
       closeEditRoutine();
       return;
     }
     // 'new' with no valid path should not reach here — saveRoutine handles 'new' above
-    showToast('Name is required');
+    toast.error('Enter a routine name');
   };
 
   const editingTasks = useMemo(
@@ -332,7 +327,7 @@ export function RoutinesPage() {
               </button>
               {run.taskIndex + 1 >= currentTasks.length && (
                 <button
-                  onClick={() => { setRun(null); showToast('Routine complete'); }}
+                  onClick={() => { setRun(null); toast.success('Routine complete'); }}
                   className="flex-1 min-w-[120px] px-[20px] py-[12px] bg-primary hover:bg-primary/90 text-on-primary text-[13px] font-semibold rounded-lg text-center"
                 >
                   Finish
@@ -364,11 +359,6 @@ export function RoutinesPage() {
             ))}
           </ol>
         </div>
-        {toast && (
-          <div className="fixed bottom-[32px] left-1/2 -translate-x-1/2 bg-primary-container text-on-primary-container px-[20px] py-[12px] rounded-xl text-[13px] font-semibold shadow-lg z-50">
-            {toast}
-          </div>
-        )}
       </div>
     );
   }
@@ -651,12 +641,6 @@ export function RoutinesPage() {
           );
         })}
       </div>
-
-      {toast && (
-        <div className="fixed bottom-[32px] left-1/2 -translate-x-1/2 bg-primary-container text-on-primary-container px-[20px] py-[12px] rounded-xl text-[13px] font-semibold shadow-lg z-50">
-          {toast}
-        </div>
-      )}
     </div>
   );
 }

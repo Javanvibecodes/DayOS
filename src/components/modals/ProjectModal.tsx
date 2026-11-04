@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useProjectStore } from '@/stores/projectStore';
 import { useGoalStore } from '@/stores/goalStore';
 import { useCategoryStore } from '@/stores/categoryStore';
+import { toast } from '@/stores/toastStore';
 import type { Project } from '@/types';
 
 interface ProjectModalProps {
@@ -46,7 +47,10 @@ export function ProjectModal({ isOpen, onClose, projectToEdit }: ProjectModalPro
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim()) return;
+    if (!name.trim()) {
+      toast.error('Enter a project name');
+      return;
+    }
 
     if (projectToEdit) {
       updateProject({
@@ -57,6 +61,7 @@ export function ProjectModal({ isOpen, onClose, projectToEdit }: ProjectModalPro
         goal_id: goalId || undefined,
         category_id: categoryId,
       });
+      toast.success('Project updated');
     } else {
       createProject({
         name: name.trim(),
@@ -65,6 +70,7 @@ export function ProjectModal({ isOpen, onClose, projectToEdit }: ProjectModalPro
         goal_id: goalId || undefined,
         category_id: categoryId || undefined,
       });
+      toast.success('Project created');
     }
     onClose();
   };

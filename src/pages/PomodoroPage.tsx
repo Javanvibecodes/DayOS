@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { usePomodoroStore, refreshPomodoroConfig } from '@/stores/pomodoroStore';
+import { toast } from '@/stores/toastStore';
 
 function formatTime(totalSeconds: number): string {
   const s = Math.max(0, totalSeconds);
@@ -22,7 +23,6 @@ const DURATION_HINTS = {
 export function PomodoroPage() {
   const settings = useSettingsStore();
   const pom = usePomodoroStore();
-  const [toast, setToast] = useState<string | null>(null);
 
   useEffect(() => {
     if (pom.secondsLeft === 0 && !pom.running && !pom.completed && pom.currentBlock === 1 && pom.phase === 'focus') {
@@ -30,11 +30,6 @@ export function PomodoroPage() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  const showToast = (msg: string) => {
-    setToast(msg);
-    setTimeout(() => setToast(null), 2500);
-  };
 
   const setNum = (key: 'pomodoroSessionMinutes' | 'pomodoroFocusMinutes' | 'pomodoroBreakMinutes', value: number) => {
     const v = Math.max(key === 'pomodoroBreakMinutes' ? 0 : 1, Math.floor(value) || 0);
@@ -52,7 +47,7 @@ export function PomodoroPage() {
   };
 
   const handleStart = () => {
-    if (pom.completed) showToast('Session complete — reset to start a new one');
+    if (pom.completed) toast.info('Session complete — reset to start a new one');
     pom.start();
   };
 
@@ -126,13 +121,6 @@ export function PomodoroPage() {
 
   return (
     <div className="p-[32px] max-w-[960px] mx-auto flex flex-col gap-[28px]">
-      {toast && (
-        <div className="fixed bottom-6 right-6 z-50 bg-primary text-on-primary font-semibold text-[13px] px-[16px] py-[10px] rounded-xl shadow-2xl flex items-center gap-[12px]">
-          <span className="material-symbols-outlined text-[18px]">info</span>
-          {toast}
-        </div>
-      )}
-
       <div className="mt-[8px]">
         <h2 className="text-[28px] leading-9 font-semibold text-on-surface mb-[8px] flex items-center gap-[12px]">
           <span className="material-symbols-outlined text-[32px] text-primary">timer</span>
@@ -292,7 +280,7 @@ export function PomodoroPage() {
           <button
             onClick={() => {
               pom.reset();
-              showToast('Pomodoro reset');
+              toast.success('Timer reset');
             }}
             className="px-[20px] py-[12px] rounded-xl border border-outline-variant/40 text-on-surface-variant text-[13px] font-semibold flex items-center gap-[8px] justify-center text-center hover:bg-surface-container-high"
           >

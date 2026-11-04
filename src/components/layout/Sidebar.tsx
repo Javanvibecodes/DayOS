@@ -12,6 +12,7 @@ export function Sidebar() {
     { id: 'meetings' as const, label: 'Meetings', icon: 'groups' },
     { id: 'timetable' as const, label: 'Timetable', icon: 'calendar_view_day' },
     { id: 'routines' as const, label: 'Routines', icon: 'routine' },
+    { id: 'notes' as const, label: 'Notes', icon: 'sticky_note_2' },
     { id: 'pomodoro' as const, label: 'Pomodoro', icon: 'timer' },
   ];
 

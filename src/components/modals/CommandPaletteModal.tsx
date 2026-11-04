@@ -50,6 +50,7 @@ export function CommandPaletteModal({
     { label: 'Go to Meetings', icon: 'groups', action: () => navigateTo('meetings') },
     { label: 'Go to Timetable', icon: 'calendar_view_day', action: () => navigateTo('timetable') },
     { label: 'Go to Routines', icon: 'routine', action: () => navigateTo('routines') },
+    { label: 'Go to Notes', icon: 'sticky_note_2', action: () => navigateTo('notes') },
     { label: 'Go to Pomodoro', icon: 'timer', action: () => navigateTo('pomodoro') },
     { label: 'Go to Settings', icon: 'settings', action: () => navigateTo('settings') },
   ];

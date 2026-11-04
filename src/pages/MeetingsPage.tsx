@@ -1,7 +1,7 @@
-import { useState } from 'react';
 import { useMeetingStore } from '@/stores/meetingStore';
 import { format, parseISO } from 'date-fns';
 import { openUrl } from '@tauri-apps/plugin-opener';
+import { toast } from '@/stores/toastStore';
 import type { Meeting } from '@/types';
 
 interface MeetingsPageProps {
@@ -11,7 +11,6 @@ interface MeetingsPageProps {
 
 export function MeetingsPage({ onNewMeeting, onEditMeeting }: MeetingsPageProps) {
   const { meetings, isLoading, deleteMeeting } = useMeetingStore();
-  const [toastMsg, setToastMsg] = useState<string | null>(null);
 
   const today = new Date();
   const todayStr = format(today, 'yyyy-MM-dd');
@@ -19,25 +18,33 @@ export function MeetingsPage({ onNewMeeting, onEditMeeting }: MeetingsPageProps)
   const todayMeetings = meetings.filter((m) => m.date === todayStr);
   const upcomingMeetings = meetings.filter((m) => m.date > todayStr);
 
-  const showToast = (msg: string) => {
-    setToastMsg(msg);
-    setTimeout(() => setToastMsg(null), 2500);
-  };
-
-  const handleCopyLink = (url?: string | null) => {
+  const handleCopyLink = async (url?: string | null) => {
     if (!url) {
-      showToast('No meeting link to copy');
+      toast.info('This meeting has no link to copy');
       return;
     }
-    navigator.clipboard.writeText(url);
-    showToast('Meeting link copied to clipboard!');
+    try {
+      await navigator.clipboard.writeText(url);
+      toast.success('Meeting link copied');
+    } catch {
+      toast.error('Could not copy the meeting link');
+    }
   };
 
   const handleJoin = async (url: string) => {
     try {
       await openUrl(url);
     } catch {
-      showToast('Could not open meeting link');
+      toast.error('Could not open the meeting link');
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    try {
+      await deleteMeeting(id);
+      toast.success('Meeting deleted');
+    } catch {
+      toast.error('Could not delete the meeting');
     }
   };
 
@@ -51,14 +58,6 @@ export function MeetingsPage({ onNewMeeting, onEditMeeting }: MeetingsPageProps)
 
   return (
     <div className="p-[32px] max-w-[1440px] mx-auto flex flex-col gap-[32px]">
-      {/* Toast Banner */}
-      {toastMsg && (
-        <div className="fixed bottom-6 right-6 z-50 bg-primary text-on-primary font-semibold text-[13px] px-[16px] py-[10px] rounded-xl shadow-2xl flex items-center gap-[18px] animate-in fade-in slide-in-from-bottom-4">
-          <span className="material-symbols-outlined text-[18px]">content_copy</span>
-          {toastMsg}
-        </div>
-      )}
-
       {/* Header */}
       <div className="flex justify-between items-center mt-[20px]">
         <div>
@@ -116,7 +115,7 @@ export function MeetingsPage({ onNewMeeting, onEditMeeting }: MeetingsPageProps)
                         <span className="material-symbols-outlined text-[16px]">edit</span>
                       </button>
                       <button
-                        onClick={() => deleteMeeting(meeting.id)}
+                        onClick={() => void handleDelete(meeting.id)}
                         className="p-[4px] text-on-surface-variant hover:text-error rounded hover:bg-surface-container transition-colors"
                         title="Delete Meeting"
                       >
@@ -195,7 +194,7 @@ export function MeetingsPage({ onNewMeeting, onEditMeeting }: MeetingsPageProps)
                     <span className="material-symbols-outlined text-[16px]">edit</span>
                   </button>
                   <button
-                    onClick={() => deleteMeeting(meeting.id)}
+                    onClick={() => void handleDelete(meeting.id)}
                     className="p-[6px] text-on-surface-variant hover:text-error rounded hover:bg-surface-container transition-colors"
                     title="Delete Meeting"
                   >

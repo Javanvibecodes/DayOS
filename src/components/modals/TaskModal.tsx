@@ -3,6 +3,7 @@ import { useTaskStore } from '@/stores/taskStore';
 import { useGoalStore } from '@/stores/goalStore';
 import { useProjectStore } from '@/stores/projectStore';
 import { useCategoryStore } from '@/stores/categoryStore';
+import { toast } from '@/stores/toastStore';
 import type { TaskPriority, Task } from '@/types';
 
 interface TaskModalProps {
@@ -91,7 +92,10 @@ export function TaskModal({ isOpen, onClose, taskToEdit }: TaskModalProps) {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!title.trim()) return;
+    if (!title.trim()) {
+      toast.error('Enter a task title');
+      return;
+    }
 
     const finalEnd = computeEndTime();
 
@@ -112,6 +116,7 @@ export function TaskModal({ isOpen, onClose, taskToEdit }: TaskModalProps) {
         reminder_enabled: reminderEnabled,
         reminder_minutes: reminderEnabled ? reminderMinutes : undefined,
       });
+      toast.success('Task updated');
     } else {
       createTask({
         title: title.trim(),
@@ -129,6 +134,7 @@ export function TaskModal({ isOpen, onClose, taskToEdit }: TaskModalProps) {
         reminder_enabled: reminderEnabled,
         reminder_minutes: reminderEnabled ? reminderMinutes : undefined,
       });
+      toast.success('Task created');
     }
     onClose();
   };

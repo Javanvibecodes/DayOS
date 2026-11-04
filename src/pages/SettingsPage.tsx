@@ -17,6 +17,7 @@ import {
   findConflictingAction,
   setCapturingShortcut,
 } from '@/lib/shortcuts';
+import { toast } from '@/stores/toastStore';
 import type { ShortcutAction } from '@/types';
 
 type SettingsTab = 'general' | 'notifications' | 'appearance' | 'shortcuts' | 'categories' | 'data';
@@ -234,7 +235,6 @@ export function SettingsPage() {
   const { categories, loadCategories, createCategory, deleteCategory } = useCategoryStore();
 
   const [activeTab, setActiveTab] = useState<SettingsTab>('general');
-  const [toastMsg, setToastMsg] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
   const [systemAutostart, setSystemAutostart] = useState<boolean | null>(null);
   const [editingShortcut, setEditingShortcut] = useState<ShortcutAction | null>(null);
@@ -242,11 +242,6 @@ export function SettingsPage() {
   const [newCatColor, setNewCatColor] = useState('#8083ff');
 
   const shortcuts = settings.shortcuts ?? DEFAULT_SHORTCUTS;
-
-  const showToast = (msg: string) => {
-    setToastMsg(msg);
-    setTimeout(() => setToastMsg(null), 2500);
-  };
 
   useEffect(() => {
     void loadCategories();
@@ -307,61 +302,61 @@ export function SettingsPage() {
       await syncAutostart(enabled);
       const sys = await readSystemAutostart();
       setSystemAutostart(sys);
-      showToast(
-        sys === enabled
-          ? enabled
-            ? 'Windows startup: ON (matches system)'
-            : 'Windows startup: OFF (matches system)'
-          : 'Could not update Windows startup settings',
-      );
+      if (sys === enabled) {
+        toast.success(enabled ? 'DayOS will start with Windows' : 'Windows startup disabled');
+      } else {
+        toast.error('Could not update Windows startup — change it in Task Manager');
+      }
     } catch {
-      showToast('Could not update Windows startup settings');
+      toast.error('Could not update Windows startup — change it in Task Manager');
     }
   };
 
   const handleStartMinimized = (enabled: boolean) => {
     setBool('startMinimized', enabled);
-    showToast(enabled ? 'Will start minimized' : 'Will start normally');
+    toast.success(enabled ? 'DayOS will start minimized' : 'DayOS will start with the window open');
   };
 
   const handleNotifToggle = async (enabled: boolean) => {
     setBool('showNotifications', enabled);
     if (enabled) {
       const ok = await ensureNotifPermission();
-      showToast(ok ? 'Desktop notifications enabled' : 'Permission denied for notifications');
       if (ok) {
+        toast.success('Desktop notifications enabled');
         try {
           sendNotification({ title: 'DayOS', body: 'Desktop notifications are on.' });
         } catch { /* ignore */ }
+      } else {
+        toast.error('Notification permission denied — allow it in Windows settings');
       }
     } else {
-      showToast('Desktop notifications disabled');
+      toast.success('Desktop notifications disabled');
     }
   };
 
   const handleSoundToggle = (enabled: boolean) => {
     setBool('soundEnabled', enabled);
     if (enabled) playTune('chime');
-    showToast(enabled ? 'Sounds enabled' : 'Sounds muted');
+    toast.success(enabled ? 'Sounds enabled' : 'Sounds muted');
   };
 
   const handleThemeMode = (mode: ThemeMode) => {
     setStr('colorMode', mode);
     applyAppearance(mode, (settings.theme as ThemeColor) || 'midnight');
-    showToast(`Mode: ${mode}`);
+    toast.success(`Appearance set to ${mode === 'system' ? 'match system' : mode}`);
   };
 
   const handleThemeColor = (theme: ThemeColor) => {
     setStr('theme', theme);
     applyAppearance(settings.colorMode, theme);
-    showToast(`Applied theme: ${theme.toUpperCase()}`);
+    toast.success(`Theme changed to ${theme.charAt(0).toUpperCase()}${theme.slice(1)}`);
   };
 
   const handleTestTune = (id: TuneId) => {
     // Preview always plays (user-initiated); master toggle only gates live alerts
     playTune(id);
     if (!settings.soundEnabled) {
-      showToast('Previewing sound (master Notification Sound is off)');
+      toast.info('Previewing sound — Notification Sound is currently off');
     }
   };
 
@@ -369,7 +364,7 @@ export function SettingsPage() {
     void settings.updateSetting(key, tuneId);
     playTune(tuneId);
     const tune = TUNE_LIBRARY.find((t) => t.id === tuneId);
-    showToast(`${tune?.name ?? tuneId} selected`);
+    toast.success(`${tune?.name ?? tuneId} selected`);
   };
 
   const handleExport = () => {
@@ -405,13 +400,13 @@ export function SettingsPage() {
     a.download = `dayos-backup-${new Date().toISOString().slice(0, 10)}.json`;
     a.click();
     URL.revokeObjectURL(url);
-    showToast('Exported DayOS database backup!');
+    toast.success('Backup exported');
   };
 
   const handleResetShortcuts = () => {
     void settings.updateSetting('shortcuts', { ...DEFAULT_SHORTCUTS });
     setEditingShortcut(null);
-    showToast('Shortcuts reset to defaults!');
+    toast.success('Shortcuts reset to defaults');
   };
 
   const beginEditShortcut = (action: ShortcutAction) => {
@@ -433,7 +428,7 @@ export function SettingsPage() {
 
       if (e.key === 'Escape') {
         cancelEditShortcut();
-        showToast('Shortcut editing cancelled');
+        toast.info('Shortcut change cancelled');
         return;
       }
 
@@ -442,7 +437,7 @@ export function SettingsPage() {
 
       const conflict = findConflictingAction(shortcuts, combo, editingShortcut);
       if (conflict) {
-        showToast(`Already used by "${SHORTCUT_LABELS[conflict]}"`);
+        toast.error(`Already assigned to ${SHORTCUT_LABELS[conflict]}`);
         cancelEditShortcut();
         return;
       }
@@ -453,7 +448,7 @@ export function SettingsPage() {
       });
       setEditingShortcut(null);
       setCapturingShortcut(false);
-      showToast(`${SHORTCUT_LABELS[editingShortcut]} → ${combo}`);
+      toast.success(`${SHORTCUT_LABELS[editingShortcut]} set to ${combo}`);
     };
 
     window.addEventListener('keydown', onKeyDown, true);
@@ -466,13 +461,6 @@ export function SettingsPage() {
 
   return (
     <div className="p-[32px] max-w-[1280px] mx-auto flex flex-col gap-[32px]">
-      {toastMsg && (
-        <div className="fixed bottom-6 right-6 z-50 bg-primary text-on-primary font-semibold text-[13px] px-[16px] py-[10px] rounded-xl shadow-2xl flex items-center gap-[18px] animate-in fade-in slide-in-from-bottom-4">
-          <span className="material-symbols-outlined text-[18px]">palette</span>
-          {toastMsg}
-        </div>
-      )}
-
       <div className="mt-[20px]">
         <h2 className="text-[28px] leading-9 font-semibold text-on-surface mb-[20px] flex items-center gap-[12px]">
           <span className="material-symbols-outlined text-[32px] text-primary">settings</span>
@@ -810,7 +798,7 @@ export function SettingsPage() {
                       if (e.key === 'Enter' && newCatName.trim()) {
                         void createCategory({ name: newCatName.trim(), color: newCatColor });
                         setNewCatName('');
-                        showToast('Category created');
+                        toast.success(`Category “${newCatName.trim()}” created`);
                       }
                     }}
                     placeholder="e.g. Work, Health, Learning"
@@ -831,9 +819,10 @@ export function SettingsPage() {
                 <button
                   onClick={async () => {
                     if (!newCatName.trim()) return;
-                    await createCategory({ name: newCatName.trim(), color: newCatColor });
+                    const name = newCatName.trim();
+                    await createCategory({ name, color: newCatColor });
                     setNewCatName('');
-                    showToast('Category created');
+                    toast.success(`Category “${name}” created`);
                   }}
                   className="px-[20px] py-[10px] bg-primary hover:bg-primary/90 text-on-primary text-[13px] font-semibold rounded-lg text-center"
                 >
@@ -862,7 +851,7 @@ export function SettingsPage() {
                     <button
                       onClick={async () => {
                         await deleteCategory(c.id);
-                        showToast('Category deleted');
+                        toast.success(`Category “${c.name}” deleted`);
                       }}
                       className="material-symbols-outlined text-[18px] text-on-surface-variant hover:text-error shrink-0"
                       title="Delete category"

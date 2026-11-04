@@ -1,5 +1,6 @@
 import { useProjectStore } from '@/stores/projectStore';
 import { useTaskStore } from '@/stores/taskStore';
+import { toast } from '@/stores/toastStore';
 import type { Project } from '@/types';
 
 interface ProjectsPageProps {
@@ -64,7 +65,10 @@ export function ProjectsPage({ onNewProject, onEditProject }: ProjectsPageProps)
                       <span className="material-symbols-outlined text-[18px]">edit</span>
                     </button>
                     <button
-                      onClick={() => deleteProject(project.id)}
+                      onClick={() => {
+                        deleteProject(project.id);
+                        toast.success('Project deleted');
+                      }}
                       className="p-[4px] text-on-surface-variant hover:text-error rounded hover:bg-surface-container transition-colors"
                       title="Delete Project"
                     >

@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useTaskStore } from '@/stores/taskStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { playAlarm, stopAlarm } from '@/services/alarmService';
+import { toast } from '@/stores/toastStore';
 import type { Task } from '@/types';
 import { cn } from '@/lib/utils';
 
@@ -49,7 +50,6 @@ export function TasksPage({ onNewTask, onEditTask }: TasksPageProps) {
   const { tasks, selectedTask, setSelectedTask, completeTask, uncompleteTask, deleteTask, duplicateTask, getOverdueTasks, checkOverdueTasks } = useTaskStore();
   const [activeFilter, setActiveFilter] = useState<'today' | 'upcoming' | 'all' | 'completed' | 'overdue'>('all');
   const [timerActive, setTimerActive] = useState(false);
-  const [timerToast, setTimerToast] = useState<string | null>(null);
 
   const overdueTasks = getOverdueTasks();
 
@@ -62,8 +62,7 @@ export function TasksPage({ onNewTask, onEditTask }: TasksPageProps) {
   const handleExpire = () => {
     const s = useSettingsStore.getState();
     if (s.soundEnabled) playAlarm(s.pomodoroTune);
-    setTimerToast('Timer finished! Alarm ringing...');
-    setTimeout(() => setTimerToast(null), 5000);
+    toast.info('Timer finished — alarm ringing');
   };
 
   const countdown = useCountdown(timerActive, handleExpire);
@@ -88,15 +87,16 @@ export function TasksPage({ onNewTask, onEditTask }: TasksPageProps) {
     e.stopPropagation();
     if (task.status === 'completed') {
       uncompleteTask(task.id);
+      toast.info('Task reopened');
     } else {
       completeTask(task.id);
+      toast.success('Task completed');
     }
   };
 
   const handleStartTimer = (task: Task) => {
     setTimerActive(true);
-    setTimerToast(`Started timer for: "${task.title}"`);
-    setTimeout(() => setTimerToast(null), 3000);
+    toast.info(`Timer started for “${task.title}”`);
   };
 
   const handleStopTimer = () => {
@@ -106,14 +106,6 @@ export function TasksPage({ onNewTask, onEditTask }: TasksPageProps) {
 
   return (
     <div className="flex h-full w-full overflow-hidden bg-background">
-      {/* Timer Active Toast */}
-      {timerToast && (
-        <div className="fixed bottom-6 right-6 z-50 bg-primary text-on-primary font-semibold text-[13px] px-[16px] py-[10px] rounded-xl shadow-2xl flex items-center gap-[18px] animate-in fade-in slide-in-from-bottom-4">
-          <span className="material-symbols-outlined text-[18px]">timer</span>
-          {timerToast}
-        </div>
-      )}
-
       {/* Main Task List Panel */}
       <div className="flex-1 flex flex-col min-w-0 border-r border-outline-variant/20 bg-surface">
         {/* Filter Bar */}
@@ -232,7 +224,11 @@ export function TasksPage({ onNewTask, onEditTask }: TasksPageProps) {
                         <span className="material-symbols-outlined text-[18px]">edit</span>
                       </button>
                       <button
-                        onClick={(e) => { e.stopPropagation(); deleteTask(task.id); }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          deleteTask(task.id);
+                          toast.success('Task deleted');
+                        }}
                         className="p-[4px] text-on-surface-variant hover:text-error rounded hover:bg-surface-container transition-colors"
                         title="Delete Task"
                       >
@@ -260,7 +256,10 @@ export function TasksPage({ onNewTask, onEditTask }: TasksPageProps) {
                 <span className="material-symbols-outlined text-[20px]">check_circle</span>
               </button>
               <button
-                onClick={() => duplicateTask(selectedTask.id)}
+                onClick={() => {
+                  duplicateTask(selectedTask.id);
+                  toast.success('Task duplicated');
+                }}
                 className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-surface-container text-on-surface-variant hover:text-primary transition-colors"
                 title="Duplicate Task"
               >
@@ -269,7 +268,10 @@ export function TasksPage({ onNewTask, onEditTask }: TasksPageProps) {
             </div>
             <div className="flex gap-[18px]">
               <button
-                onClick={() => deleteTask(selectedTask.id)}
+                onClick={() => {
+                  deleteTask(selectedTask.id);
+                  toast.success('Task deleted');
+                }}
                 className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-error-container hover:text-on-error-container text-on-surface-variant transition-colors"
                 title="Delete Task"
               >

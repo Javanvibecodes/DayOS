@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useMeetingStore } from '@/stores/meetingStore';
+import { toast } from '@/stores/toastStore';
 import { MEETING_REMINDER_OPTIONS, type Meeting } from '@/types';
 
 const REMINDER_LABELS: Record<number, string> = {
@@ -66,7 +67,10 @@ export function MeetingModal({ isOpen, onClose, meetingToEdit }: MeetingModalPro
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!title.trim()) return;
+    if (!title.trim()) {
+      toast.error('Enter a meeting title');
+      return;
+    }
 
     const offsets = [...reminderOffsets].sort((a, b) => b - a).slice(0, 3);
     const reminderEnabled = offsets.length > 0;
@@ -85,6 +89,7 @@ export function MeetingModal({ isOpen, onClose, meetingToEdit }: MeetingModalPro
         reminder_minutes: reminderMinutes,
         reminder_offsets: offsets,
       });
+      toast.success('Meeting updated');
     } else {
       createMeeting({
         title: title.trim(),
@@ -97,6 +102,7 @@ export function MeetingModal({ isOpen, onClose, meetingToEdit }: MeetingModalPro
         reminder_minutes: reminderMinutes,
         reminder_offsets: offsets,
       });
+      toast.success('Meeting scheduled');
     }
     onClose();
   };

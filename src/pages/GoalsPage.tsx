@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useGoalStore } from '@/stores/goalStore';
 import { useTaskStore } from '@/stores/taskStore';
+import { toast } from '@/stores/toastStore';
 import { cn } from '@/lib/utils';
 import type { Goal } from '@/types';
 
@@ -106,7 +107,10 @@ export function GoalsPage({ onNewGoal, onNewTask, onEditGoal }: GoalsPageProps) 
                 <span className="material-symbols-outlined text-[18px]">edit</span>
               </button>
               <button
-                onClick={() => deleteGoal(goal.id)}
+                onClick={() => {
+                  deleteGoal(goal.id);
+                  toast.success('Goal deleted');
+                }}
                 className="p-[8px] text-on-surface-variant hover:text-error rounded-lg hover:bg-surface-container transition-colors"
                 title="Delete Goal"
               >

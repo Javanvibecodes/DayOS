@@ -296,3 +296,57 @@ pub fn delete_day_template(state: State<'_, DbState>, id: String) -> Result<(), 
     let conn = state.conn.lock().map_err(|e| e.to_string())?;
     queries::delete_day_template(&conn, &id).map_err(|e| e.to_string())
 }
+
+#[tauri::command]
+pub fn create_note_folder(state: State<'_, DbState>, req: CreateNoteFolderRequest) -> Result<NoteFolder, String> {
+    let conn = state.conn.lock().map_err(|e| e.to_string())?;
+    queries::create_note_folder(&conn, req).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn get_all_note_folders(state: State<'_, DbState>) -> Result<Vec<NoteFolder>, String> {
+    let conn = state.conn.lock().map_err(|e| e.to_string())?;
+    queries::get_all_note_folders(&conn).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn update_note_folder(state: State<'_, DbState>, req: UpdateNoteFolderRequest) -> Result<NoteFolder, String> {
+    let conn = state.conn.lock().map_err(|e| e.to_string())?;
+    queries::update_note_folder(&conn, req).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn delete_note_folder(state: State<'_, DbState>, id: String) -> Result<(), String> {
+    let conn = state.conn.lock().map_err(|e| e.to_string())?;
+    queries::delete_note_folder(&conn, &id).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn create_note(state: State<'_, DbState>, req: CreateNoteRequest) -> Result<Note, String> {
+    let conn = state.conn.lock().map_err(|e| e.to_string())?;
+    queries::create_note(&conn, req).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn get_all_notes(state: State<'_, DbState>) -> Result<Vec<Note>, String> {
+    let conn = state.conn.lock().map_err(|e| e.to_string())?;
+    queries::get_all_notes(&conn).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn get_notes_by_folder(state: State<'_, DbState>, folder_id: String) -> Result<Vec<Note>, String> {
+    let conn = state.conn.lock().map_err(|e| e.to_string())?;
+    queries::get_notes_by_folder(&conn, &folder_id).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn update_note(state: State<'_, DbState>, req: UpdateNoteRequest) -> Result<Note, String> {
+    let conn = state.conn.lock().map_err(|e| e.to_string())?;
+    queries::update_note(&conn, req).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn delete_note(state: State<'_, DbState>, id: String) -> Result<(), String> {
+    let conn = state.conn.lock().map_err(|e| e.to_string())?;
+    queries::delete_note(&conn, &id).map_err(|e| e.to_string())
+}

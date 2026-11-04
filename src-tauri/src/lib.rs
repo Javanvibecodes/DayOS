@@ -13,8 +13,6 @@ pub fn run() {
             tauri_plugin_autostart::MacosLauncher::LaunchAgent,
             None,
         ))
-        .plugin(tauri_plugin_global_shortcut::Builder::new().build())
-        .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_opener::init())
         .setup(|app| {
             if cfg!(debug_assertions) {
@@ -85,6 +83,15 @@ pub fn run() {
             commands::create_day_template,
             commands::get_day_templates,
             commands::delete_day_template,
+            commands::create_note_folder,
+            commands::get_all_note_folders,
+            commands::update_note_folder,
+            commands::delete_note_folder,
+            commands::create_note,
+            commands::get_all_notes,
+            commands::get_notes_by_folder,
+            commands::update_note,
+            commands::delete_note,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -9,8 +9,6 @@
     "core:default",
     "notification:default",
     "autostart:default",
-    "global-shortcut:default",
-    "fs:default",
     "opener:default",
     "opener:allow-default-urls"
   ]

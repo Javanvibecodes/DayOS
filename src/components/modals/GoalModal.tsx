@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useGoalStore } from '@/stores/goalStore';
 import { useCategoryStore } from '@/stores/categoryStore';
+import { toast } from '@/stores/toastStore';
 import type { GoalType, Goal } from '@/types';
 
 function isoDate(d: Date): string {
@@ -69,7 +70,10 @@ export function GoalModal({ isOpen, onClose, goalToEdit }: GoalModalProps) {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!title.trim()) return;
+    if (!title.trim()) {
+      toast.error('Enter a goal title');
+      return;
+    }
 
     const { start, end } = goalDatesFor(type);
 
@@ -84,6 +88,7 @@ export function GoalModal({ isOpen, onClose, goalToEdit }: GoalModalProps) {
         category_id: categoryId,
         recurrence_rule: recurrence === 'none' ? undefined : recurrence,
       });
+      toast.success('Goal updated');
     } else {
       createGoal({
         title: title.trim(),
@@ -94,6 +99,7 @@ export function GoalModal({ isOpen, onClose, goalToEdit }: GoalModalProps) {
         category_id: categoryId || undefined,
         recurrence_rule: recurrence === 'none' ? undefined : recurrence,
       });
+      toast.success('Goal created');
     }
     onClose();
   };
