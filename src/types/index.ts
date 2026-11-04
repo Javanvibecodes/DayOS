@@ -153,6 +153,14 @@ export interface CreateCategoryRequest {
   sort_order?: number;
 }
 
+export interface UpdateCategoryRequest {
+  id: string;
+  name?: string;
+  color?: string;
+  icon?: string;
+  sort_order?: number;
+}
+
 // Meeting types
 export const MEETING_REMINDER_OPTIONS = [
   1440, 720, 360, 180, 120, 60, 30, 15,

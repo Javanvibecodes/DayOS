@@ -12,6 +12,7 @@ import type {
   CreateProjectRequest,
   UpdateProjectRequest,
   CreateCategoryRequest,
+  UpdateCategoryRequest,
   CreateMeetingRequest,
   UpdateMeetingRequest,
   SearchResult,
@@ -108,6 +109,9 @@ export const categoryApi = {
   
   getAll: (): Promise<Category[]> =>
     invoke('get_all_categories'),
+  
+  update: (req: UpdateCategoryRequest): Promise<Category> =>
+    invoke('update_category', { req }),
   
   delete: (id: string): Promise<void> =>
     invoke('delete_category', { id }),

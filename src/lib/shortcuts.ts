@@ -28,18 +28,8 @@ export const SHORTCUT_ACTIONS = Object.keys(DEFAULT_SHORTCUTS) as ShortcutAction
 
 const MODIFIER_KEYS = new Set(['Control', 'Shift', 'Alt', 'Meta', 'CapsLock', 'AltGraph']);
 
-let capturing = false;
-
-export function setCapturingShortcut(value: boolean) {
-  capturing = value;
-}
-
-export function isCapturingShortcut() {
-  return capturing;
-}
-
 /** Build a normalized combo string (e.g. "Ctrl+Shift+T") from a keyboard event. */
-export function eventToCombo(e: KeyboardEvent): string | null {
+function eventToCombo(e: KeyboardEvent): string | null {
   if (MODIFIER_KEYS.has(e.key)) return null;
 
   const parts: string[] = [];
@@ -68,15 +58,4 @@ export function comboMatches(e: KeyboardEvent, binding: string): boolean {
 
 export function comboToKeys(combo: string): string[] {
   return combo.split('+');
-}
-
-export function findConflictingAction(
-  bindings: ShortcutBindings,
-  combo: string,
-  exclude: ShortcutAction,
-): ShortcutAction | null {
-  for (const action of SHORTCUT_ACTIONS) {
-    if (action !== exclude && bindings[action] === combo) return action;
-  }
-  return null;
 }

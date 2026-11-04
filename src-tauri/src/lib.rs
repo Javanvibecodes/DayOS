@@ -52,6 +52,7 @@ pub fn run() {
             commands::delete_project,
             commands::create_category,
             commands::get_all_categories,
+            commands::update_category,
             commands::delete_category,
             commands::create_meeting,
             commands::get_all_meetings,

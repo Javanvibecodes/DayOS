@@ -118,6 +118,12 @@ pub fn delete_category(state: State<'_, DbState>, id: String) -> Result<(), Stri
 }
 
 #[tauri::command]
+pub fn update_category(state: State<'_, DbState>, req: UpdateCategoryRequest) -> Result<Category, String> {
+    let conn = state.conn.lock().map_err(|e| e.to_string())?;
+    queries::update_category(&conn, req).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
 pub fn create_meeting(state: State<'_, DbState>, req: CreateMeetingRequest) -> Result<Meeting, String> {
     let conn = state.conn.lock().map_err(|e| e.to_string())?;
     queries::create_meeting(&conn, req).map_err(|e| e.to_string())

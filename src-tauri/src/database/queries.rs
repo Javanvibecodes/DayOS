@@ -444,6 +444,21 @@ pub fn delete_category(conn: &Connection, id: &str) -> Result<()> {
     Ok(())
 }
 
+pub fn update_category(conn: &Connection, req: UpdateCategoryRequest) -> Result<Category> {
+    conn.execute(
+        "UPDATE categories SET
+            name = COALESCE(?2, name),
+            color = COALESCE(?3, color),
+            icon = COALESCE(?4, icon),
+            sort_order = COALESCE(?5, sort_order),
+            updated_at = datetime('now')
+         WHERE id = ?1",
+        params![req.id, req.name, req.color, req.icon, req.sort_order],
+    )?;
+
+    get_category_by_id(conn, &req.id)
+}
+
 // Meetings
 const MEETING_COLS: &str = "id, title, description, date, start_time, end_time, meeting_url, reminder_enabled, reminder_minutes, reminder_offsets, is_recurring, recurrence_rule, created_at, updated_at";
 

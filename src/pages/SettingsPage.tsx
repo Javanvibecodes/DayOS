@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { useTaskStore } from '@/stores/taskStore';
 import { useGoalStore } from '@/stores/goalStore';
@@ -13,120 +13,12 @@ import {
   SHORTCUT_ACTIONS,
   SHORTCUT_LABELS,
   comboToKeys,
-  eventToCombo,
-  findConflictingAction,
-  setCapturingShortcut,
 } from '@/lib/shortcuts';
 import { toast } from '@/stores/toastStore';
-import type { ShortcutAction } from '@/types';
+import { THEME_PALETTES, applyAppearance, resolveColorMode, type ThemeColor } from '@/lib/theme';
 
 type SettingsTab = 'general' | 'notifications' | 'appearance' | 'shortcuts' | 'categories' | 'data';
 type ThemeMode = 'light' | 'dark' | 'system';
-type ThemeColor = 'midnight' | 'paper' | 'forest' | 'aurora';
-
-const THEME_PALETTES: Record<ThemeColor, { primary: string; primaryContainer: string; onPrimary: string; onPrimaryContainer: string; secondary: string; background: string; surface: string; surfaceContainerLow: string; surfaceContainer: string; surfaceContainerHigh: string; onSurface: string; onSurfaceVariant: string; outlineVariant: string; }> = {
-  midnight: {
-    primary: '#c0c1ff', primaryContainer: '#8083ff', onPrimary: '#1000a9', onPrimaryContainer: '#0d0096',
-    secondary: '#ddb7ff', background: '#131315', surface: '#131315',
-    surfaceContainerLow: '#1c1b1d', surfaceContainer: '#201f22', surfaceContainerHigh: '#2a2a2c',
-    onSurface: '#e5e1e4', onSurfaceVariant: '#c7c4d7', outlineVariant: '#464554',
-  },
-  paper: {
-    primary: '#5b5f9f', primaryContainer: '#e0e0ff', onPrimary: '#ffffff', onPrimaryContainer: '#1a1a4e',
-    secondary: '#7c4da0', background: '#f6f5f9', surface: '#f6f5f9',
-    surfaceContainerLow: '#eeedf2', surfaceContainer: '#e8e7ed', surfaceContainerHigh: '#dddce4',
-    onSurface: '#1b1b1f', onSurfaceVariant: '#46464f', outlineVariant: '#c7c6d0',
-  },
-  forest: {
-    primary: '#6dbf8a', primaryContainer: '#1f4d33', onPrimary: '#ffffff', onPrimaryContainer: '#d4f5e0',
-    secondary: '#8fd4a8', background: '#0f1612', surface: '#0f1612',
-    surfaceContainerLow: '#162019', surfaceContainer: '#1a2720', surfaceContainerHigh: '#22332a',
-    onSurface: '#e0ebe4', onSurfaceVariant: '#b0c4b8', outlineVariant: '#3d5248',
-  },
-  aurora: {
-    primary: '#7dd3fc', primaryContainer: '#0e7490', onPrimary: '#082f49', onPrimaryContainer: '#e0f2fe',
-    secondary: '#a78bfa', background: '#0c0a14', surface: '#0c0a14',
-    surfaceContainerLow: '#14121f', surfaceContainer: '#1a1728', surfaceContainerHigh: '#252136',
-    onSurface: '#e8e6f0', onSurfaceVariant: '#c0bcd4', outlineVariant: '#4a4560',
-  },
-};
-
-const PALETTE_CSS_VARS = [
-  '--primary',
-  '--primary-container',
-  '--on-primary',
-  '--on-primary-container',
-  '--secondary',
-  '--background',
-  '--surface',
-  '--surface-container-low',
-  '--surface-container',
-  '--surface-container-high',
-  '--surface-container-highest',
-  '--surface-container-lowest',
-  '--surface-dim',
-  '--surface-bright',
-  '--surface-variant',
-  '--on-surface',
-  '--on-background',
-  '--on-surface-variant',
-  '--outline',
-  '--outline-variant',
-  '--secondary-container',
-  '--on-secondary',
-  '--on-secondary-container',
-];
-
-function applyThemePalette(theme: ThemeColor) {
-  const p = THEME_PALETTES[theme];
-  const r = document.documentElement.style;
-  r.setProperty('--primary', p.primary);
-  r.setProperty('--primary-container', p.primaryContainer);
-  r.setProperty('--on-primary', p.onPrimary);
-  r.setProperty('--on-primary-container', p.onPrimaryContainer);
-  r.setProperty('--secondary', p.secondary);
-  r.setProperty('--background', p.background);
-  r.setProperty('--surface', p.surface);
-  r.setProperty('--surface-container-low', p.surfaceContainerLow);
-  r.setProperty('--surface-container', p.surfaceContainer);
-  r.setProperty('--surface-container-high', p.surfaceContainerHigh);
-  r.setProperty('--surface-container-highest', p.surfaceContainerHigh);
-  r.setProperty('--on-surface', p.onSurface);
-  r.setProperty('--on-background', p.onSurface);
-  r.setProperty('--on-surface-variant', p.onSurfaceVariant);
-  r.setProperty('--outline-variant', p.outlineVariant);
-  document.body.style.backgroundColor = p.background;
-  document.body.style.color = p.onSurface;
-}
-
-/** Remove inline palette overrides so html.light CSS variables take effect. */
-function clearThemePalette() {
-  const r = document.documentElement.style;
-  for (const key of PALETTE_CSS_VARS) r.removeProperty(key);
-  document.body.style.backgroundColor = '';
-  document.body.style.color = '';
-}
-
-function resolveColorMode(mode: ThemeMode): 'light' | 'dark' {
-  if (mode === 'system') {
-    return window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
-  }
-  return mode;
-}
-
-function applyAppearance(mode: ThemeMode, theme: ThemeColor) {
-  const root = document.documentElement;
-  const resolved = resolveColorMode(mode);
-  if (resolved === 'light') {
-    root.classList.add('light');
-    root.classList.remove('dark');
-    clearThemePalette();
-  } else {
-    root.classList.remove('light');
-    root.classList.add('dark');
-    applyThemePalette(theme);
-  }
-}
 
 async function syncAutostart(enabled: boolean) {
   try {
@@ -232,14 +124,16 @@ export function SettingsPage() {
   const { goals } = useGoalStore();
   const { projects } = useProjectStore();
   const { meetings } = useMeetingStore();
-  const { categories, loadCategories, createCategory, deleteCategory } = useCategoryStore();
+  const { categories, loadCategories, createCategory, updateCategory, deleteCategory } = useCategoryStore();
 
   const [activeTab, setActiveTab] = useState<SettingsTab>('general');
   const [ready, setReady] = useState(false);
   const [systemAutostart, setSystemAutostart] = useState<boolean | null>(null);
-  const [editingShortcut, setEditingShortcut] = useState<ShortcutAction | null>(null);
   const [newCatName, setNewCatName] = useState('');
   const [newCatColor, setNewCatColor] = useState('#8083ff');
+  const [editingCatId, setEditingCatId] = useState<string | null>(null);
+  const [editCatName, setEditCatName] = useState('');
+  const [editCatColor, setEditCatColor] = useState('#8083ff');
 
   const shortcuts = settings.shortcuts ?? DEFAULT_SHORTCUTS;
 
@@ -402,62 +296,6 @@ export function SettingsPage() {
     URL.revokeObjectURL(url);
     toast.success('Backup exported');
   };
-
-  const handleResetShortcuts = () => {
-    void settings.updateSetting('shortcuts', { ...DEFAULT_SHORTCUTS });
-    setEditingShortcut(null);
-    toast.success('Shortcuts reset to defaults');
-  };
-
-  const beginEditShortcut = (action: ShortcutAction) => {
-    setEditingShortcut(action);
-    setCapturingShortcut(true);
-  };
-
-  const cancelEditShortcut = useCallback(() => {
-    setEditingShortcut(null);
-    setCapturingShortcut(false);
-  }, []);
-
-  useEffect(() => {
-    if (!editingShortcut) return;
-
-    const onKeyDown = (e: KeyboardEvent) => {
-      e.preventDefault();
-      e.stopPropagation();
-
-      if (e.key === 'Escape') {
-        cancelEditShortcut();
-        toast.info('Shortcut change cancelled');
-        return;
-      }
-
-      const combo = eventToCombo(e);
-      if (!combo) return; // modifier-only — keep listening
-
-      const conflict = findConflictingAction(shortcuts, combo, editingShortcut);
-      if (conflict) {
-        toast.error(`Already assigned to ${SHORTCUT_LABELS[conflict]}`);
-        cancelEditShortcut();
-        return;
-      }
-
-      void settings.updateSetting('shortcuts', {
-        ...shortcuts,
-        [editingShortcut]: combo,
-      });
-      setEditingShortcut(null);
-      setCapturingShortcut(false);
-      toast.success(`${SHORTCUT_LABELS[editingShortcut]} set to ${combo}`);
-    };
-
-    window.addEventListener('keydown', onKeyDown, true);
-    return () => {
-      window.removeEventListener('keydown', onKeyDown, true);
-      setCapturingShortcut(false);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [editingShortcut, shortcuts]);
 
   return (
     <div className="p-[32px] max-w-[1280px] mx-auto flex flex-col gap-[32px]">
@@ -688,10 +526,10 @@ export function SettingsPage() {
                     >
                       <div
                         className="h-16 rounded-lg border border-outline-variant/20 p-[8px] flex flex-col gap-[14px] overflow-hidden"
-                        style={{ background: THEME_PALETTES[theme].background }}
+                        style={{ background: THEME_PALETTES[theme][resolveColorMode(settings.colorMode)].background }}
                       >
-                        <div className="h-2 w-full rounded opacity-80" style={{ background: THEME_PALETTES[theme].primary }} />
-                        <div className="h-4 w-3/4 rounded" style={{ background: THEME_PALETTES[theme].surfaceContainerHigh }} />
+                        <div className="h-2 w-full rounded opacity-80" style={{ background: THEME_PALETTES[theme][resolveColorMode(settings.colorMode)].primary }} />
+                        <div className="h-4 w-3/4 rounded" style={{ background: THEME_PALETTES[theme][resolveColorMode(settings.colorMode)].surfaceContainerHigh }} />
                       </div>
                       <div className="flex justify-between items-center text-[12px] font-semibold capitalize text-on-surface mt-[8px]">
                         <span>{theme}</span>
@@ -706,70 +544,40 @@ export function SettingsPage() {
             </>
           )}
 
-          {/* Shortcuts Tab */}
+          {/* Shortcuts Tab — hardcoded defaults, read-only */}
           {activeTab === 'shortcuts' && (
             <section className="bg-surface rounded-2xl border border-outline-variant/30 overflow-hidden shadow-sm">
-              <div className="p-[28px] border-b border-outline-variant/20 flex justify-between items-center bg-surface-container-low">
+              <div className="p-[28px] border-b border-outline-variant/20 bg-surface-container-low">
                 <h3 className="text-[18px] font-bold text-on-surface flex items-center gap-[18px] mb-[12px]">
                   <span className="material-symbols-outlined text-primary">keyboard</span> Keyboard Shortcuts
                 </h3>
-                <button
-                  onClick={handleResetShortcuts}
-                  className="text-[12px] font-semibold text-primary hover:underline px-[8px] py-[4px] flex items-center justify-center text-center"
-                >
-                  Reset Defaults
-                </button>
               </div>
               <div className="divide-y divide-outline-variant/10">
                 {SHORTCUT_ACTIONS.map((action) => {
                   const combo = shortcuts[action] ?? DEFAULT_SHORTCUTS[action];
-                  const isEditing = editingShortcut === action;
                   return (
                     <div
                       key={action}
                       className="flex justify-between items-center p-[20px] hover:bg-surface-container-low transition-colors gap-[16px] flex-wrap"
                     >
                       <span className="text-[14px] font-medium text-on-surface">{SHORTCUT_LABELS[action]}</span>
-                      {isEditing ? (
-                        <div className="flex items-center gap-[12px]">
-                          <span className="px-[14px] py-[8px] rounded-lg border-2 border-dashed border-primary bg-primary-container/15 text-[12px] font-semibold text-primary animate-pulse">
-                            Press keys… (Esc to cancel)
-                          </span>
-                          <button
-                            onClick={cancelEditShortcut}
-                            className="text-[12px] text-on-surface-variant hover:text-on-surface"
+                      <div className="flex gap-[8px] font-mono text-[12px]">
+                        {comboToKeys(combo).map((k) => (
+                          <kbd
+                            key={k}
+                            className="px-[10px] py-[4px] bg-surface-container-highest border border-outline-variant/30 rounded-lg text-on-surface shadow-sm font-semibold"
                           >
-                            Cancel
-                          </button>
-                        </div>
-                      ) : (
-                        <div className="flex items-center gap-[12px]">
-                          <div className="flex gap-[8px] font-mono text-[12px]">
-                            {comboToKeys(combo).map((k) => (
-                              <kbd
-                                key={k}
-                                className="px-[10px] py-[4px] bg-surface-container-highest border border-outline-variant/30 rounded-lg text-on-surface shadow-sm font-semibold"
-                              >
-                                {k}
-                              </kbd>
-                            ))}
-                          </div>
-                          <button
-                            onClick={() => beginEditShortcut(action)}
-                            title="Edit shortcut"
-                            className="p-[6px] rounded-lg text-on-surface-variant hover:text-primary hover:bg-primary-container/15 transition-colors"
-                          >
-                            <span className="material-symbols-outlined text-[18px]">edit</span>
-                          </button>
-                        </div>
-                      )}
+                            {k}
+                          </kbd>
+                        ))}
+                      </div>
                     </div>
                   );
                 })}
               </div>
               <p className="p-[16px] text-[12px] text-on-surface-variant bg-surface-container-low border-t border-outline-variant/10 flex items-center gap-[8px]">
-                <span className="material-symbols-outlined text-[16px] text-primary">info</span>
-                Click the edit icon, then press the new key combination. Esc cancels. Duplicates are rejected.
+                <span className="material-symbols-outlined text-[16px] text-primary">lock</span>
+                Shortcuts are built into DayOS and can't be changed.
               </p>
             </section>
           )}
@@ -836,30 +644,101 @@ export function SettingsPage() {
                     No categories yet. Create one above.
                   </li>
                 )}
-                {categories.map((c) => (
-                  <li
-                    key={c.id}
-                    className="flex items-center justify-between gap-[12px] px-[16px] py-[12px] bg-surface-container-low border border-outline-variant/20 rounded-xl"
-                  >
-                    <div className="flex items-center gap-[12px] min-w-0">
-                      <span
-                        className="w-4 h-4 rounded-full shrink-0 border border-outline-variant/40"
-                        style={{ backgroundColor: c.color }}
-                      />
-                      <span className="text-[14px] font-semibold text-on-surface truncate">{c.name}</span>
-                    </div>
-                    <button
-                      onClick={async () => {
-                        await deleteCategory(c.id);
-                        toast.success(`Category “${c.name}” deleted`);
-                      }}
-                      className="material-symbols-outlined text-[18px] text-on-surface-variant hover:text-error shrink-0"
-                      title="Delete category"
+                {categories.map((c) => {
+                  const isEditing = editingCatId === c.id;
+                  if (isEditing) {
+                    return (
+                      <li
+                        key={c.id}
+                        className="flex items-center justify-between gap-[12px] px-[16px] py-[12px] bg-surface-container-low border border-primary/50 rounded-xl flex-wrap"
+                      >
+                        <div className="flex items-center gap-[12px] min-w-0 flex-1">
+                          <input
+                            type="color"
+                            value={editCatColor}
+                            onChange={(e) => setEditCatColor(e.target.value)}
+                            className="w-8 h-8 shrink-0 bg-surface-container border border-outline-variant/30 rounded-lg px-[2px] py-[2px] cursor-pointer"
+                            title="Category color"
+                          />
+                          <input
+                            value={editCatName}
+                            onChange={(e) => setEditCatName(e.target.value)}
+                            onKeyDown={async (e) => {
+                              if (e.key === 'Enter' && editCatName.trim()) {
+                                const newName = editCatName.trim();
+                                await updateCategory(c.id, { name: newName, color: editCatColor });
+                                setEditingCatId(null);
+                                toast.success(`Category “${newName}” updated`);
+                              } else if (e.key === 'Escape') {
+                                setEditingCatId(null);
+                              }
+                            }}
+                            autoFocus
+                            placeholder="Category name"
+                            className="flex-1 min-w-[140px] bg-surface border border-outline-variant/30 rounded-lg px-[12px] py-[8px] text-[14px] text-on-surface focus:outline-none focus:border-primary"
+                          />
+                        </div>
+                        <div className="flex items-center gap-[8px]">
+                          <button
+                            onClick={async () => {
+                              if (!editCatName.trim()) return;
+                              const newName = editCatName.trim();
+                              await updateCategory(c.id, { name: newName, color: editCatColor });
+                              setEditingCatId(null);
+                              toast.success(`Category “${newName}” updated`);
+                            }}
+                            className="px-[14px] py-[7px] bg-primary hover:bg-primary/90 text-on-primary text-[12px] font-semibold rounded-lg"
+                          >
+                            Save
+                          </button>
+                          <button
+                            onClick={() => setEditingCatId(null)}
+                            className="text-[12px] text-on-surface-variant hover:text-on-surface px-[8px] py-[7px]"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </li>
+                    );
+                  }
+                  return (
+                    <li
+                      key={c.id}
+                      className="flex items-center justify-between gap-[12px] px-[16px] py-[12px] bg-surface-container-low border border-outline-variant/20 rounded-xl"
                     >
-                      delete
-                    </button>
-                  </li>
-                ))}
+                      <div className="flex items-center gap-[12px] min-w-0">
+                        <span
+                          className="w-4 h-4 rounded-full shrink-0 border border-outline-variant/40"
+                          style={{ backgroundColor: c.color }}
+                        />
+                        <span className="text-[14px] font-semibold text-on-surface truncate">{c.name}</span>
+                      </div>
+                      <div className="flex items-center gap-[4px] shrink-0">
+                        <button
+                          onClick={() => {
+                            setEditingCatId(c.id);
+                            setEditCatName(c.name);
+                            setEditCatColor(c.color);
+                          }}
+                          className="material-symbols-outlined text-[18px] text-on-surface-variant hover:text-primary transition-colors"
+                          title="Edit category"
+                        >
+                          edit
+                        </button>
+                        <button
+                          onClick={async () => {
+                            await deleteCategory(c.id);
+                            toast.success(`Category “${c.name}” deleted`);
+                          }}
+                          className="material-symbols-outlined text-[18px] text-on-surface-variant hover:text-error transition-colors"
+                          title="Delete category"
+                        >
+                          delete
+                        </button>
+                      </div>
+                    </li>
+                  );
+                })}
               </ul>
             </section>
           )}

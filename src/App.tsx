@@ -11,6 +11,7 @@ import { useCategoryStore } from '@/stores/categoryStore';
 import { playAlarm, playNotificationChime, stopAlarm, onAlarmChange, isAlarmRinging } from '@/services/alarmService';
 import { isEnabled as autostartIsEnabled } from '@tauri-apps/plugin-autostart';
 import { ToastHost } from '@/components/ToastHost';
+import { applyAppearance } from '@/lib/theme';
 
 // Pages
 import { TodayPage } from '@/pages/TodayPage';
@@ -28,7 +29,6 @@ import {
   SHORTCUT_LABELS,
   DEFAULT_SHORTCUTS,
   comboMatches,
-  isCapturingShortcut,
 } from '@/lib/shortcuts';
 
 // Modals
@@ -63,83 +63,6 @@ function App() {
   useEffect(() => {
     return onAlarmChange(setAlarmRinging);
   }, []);
-
-  const applyAppearance = (mode: string, theme: string) => {
-    const root = document.documentElement;
-    const resolved =
-      mode === 'system'
-        ? window.matchMedia('(prefers-color-scheme: light)').matches
-          ? 'light'
-          : 'dark'
-        : mode === 'light'
-          ? 'light'
-          : 'dark';
-
-    const clearPalette = () => {
-      const vars = [
-        '--primary', '--primary-container', '--on-primary', '--on-primary-container',
-        '--secondary', '--background', '--surface', '--surface-container-low',
-        '--surface-container', '--surface-container-high', '--surface-container-highest',
-        '--surface-container-lowest', '--surface-dim', '--surface-bright', '--surface-variant',
-        '--on-surface', '--on-background', '--on-surface-variant', '--outline', '--outline-variant',
-        '--secondary-container', '--on-secondary', '--on-secondary-container',
-      ];
-      for (const v of vars) root.style.removeProperty(v);
-      document.body.style.backgroundColor = '';
-      document.body.style.color = '';
-    };
-
-    if (resolved === 'light') {
-      root.classList.add('light');
-      root.classList.remove('dark');
-      clearPalette();
-      return;
-    }
-
-    root.classList.remove('light');
-    root.classList.add('dark');
-
-    // Dark mode color palettes (match SettingsPage THEME_PALETTES)
-    const palettes: Record<string, Record<string, string>> = {
-      midnight: {
-        primary: '#c0c1ff', primaryContainer: '#8083ff', onPrimary: '#1000a9', onPrimaryContainer: '#0d0096',
-        secondary: '#ddb7ff', background: '#131315', surface: '#131315',
-        surfaceContainerLow: '#1c1b1d', surfaceContainer: '#201f22', surfaceContainerHigh: '#2a2a2c',
-        onSurface: '#e5e1e4', onSurfaceVariant: '#c7c4d7', outlineVariant: '#464554',
-      },
-      forest: {
-        primary: '#6dbf8a', primaryContainer: '#1f4d33', onPrimary: '#ffffff', onPrimaryContainer: '#d4f5e0',
-        secondary: '#8fd4a8', background: '#0f1612', surface: '#0f1612',
-        surfaceContainerLow: '#162019', surfaceContainer: '#1a2720', surfaceContainerHigh: '#22332a',
-        onSurface: '#e0ebe4', onSurfaceVariant: '#b0c4b8', outlineVariant: '#3d5248',
-      },
-      aurora: {
-        primary: '#7dd3fc', primaryContainer: '#0e7490', onPrimary: '#082f49', onPrimaryContainer: '#e0f2fe',
-        secondary: '#a78bfa', background: '#0c0a14', surface: '#0c0a14',
-        surfaceContainerLow: '#14121f', surfaceContainer: '#1a1728', surfaceContainerHigh: '#252136',
-        onSurface: '#e8e6f0', onSurfaceVariant: '#c0bcd4', outlineVariant: '#4a4560',
-      },
-    };
-    const p = palettes[theme] ?? palettes.midnight;
-    const s = root.style;
-    s.setProperty('--primary', p.primary);
-    s.setProperty('--primary-container', p.primaryContainer);
-    s.setProperty('--on-primary', p.onPrimary);
-    s.setProperty('--on-primary-container', p.onPrimaryContainer);
-    s.setProperty('--secondary', p.secondary);
-    s.setProperty('--background', p.background);
-    s.setProperty('--surface', p.surface);
-    s.setProperty('--surface-container-low', p.surfaceContainerLow);
-    s.setProperty('--surface-container', p.surfaceContainer);
-    s.setProperty('--surface-container-high', p.surfaceContainerHigh);
-    s.setProperty('--surface-container-highest', p.surfaceContainerHigh);
-    s.setProperty('--on-surface', p.onSurface);
-    s.setProperty('--on-background', p.onSurface);
-    s.setProperty('--on-surface-variant', p.onSurfaceVariant);
-    s.setProperty('--outline-variant', p.outlineVariant);
-    document.body.style.backgroundColor = p.background;
-    document.body.style.color = p.onSurface;
-  };
 
   useEffect(() => {
     loadTasks();
@@ -225,8 +148,6 @@ function App() {
   // Global Keyboard Shortcuts (bindings from settings store)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (isCapturingShortcut()) return;
-
       const bindings = useSettingsStore.getState().shortcuts ?? DEFAULT_SHORTCUTS;
       let handled = false;
 

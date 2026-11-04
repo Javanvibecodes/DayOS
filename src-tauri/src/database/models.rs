@@ -150,6 +150,15 @@ pub struct CreateCategoryRequest {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UpdateCategoryRequest {
+    pub id: String,
+    pub name: Option<String>,
+    pub color: Option<String>,
+    pub icon: Option<String>,
+    pub sort_order: Option<i32>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UpdateGoalRequest {
     pub id: String,
     pub title: Option<String>,
