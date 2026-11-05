@@ -2,7 +2,11 @@ use tauri::State;
 use crate::database::DbState;
 use crate::database::models::*;
 use crate::database::queries;
-use std::path::PathBuf;
+use crate::integrations::service::SharedIntegrationService;
+use crate::integrations::types::{
+    ApiError, ExternalMeetingRequest, ExternalMeetingResult, IntegrationStatuses,
+    ProviderConnectionStatus, UpdateExternalMeetingRequest,
+};
 use tauri::{Manager, AppHandle};
 
 #[tauri::command]
@@ -547,4 +551,78 @@ pub fn stop_ollama(state: State<'_, OllamaProcessState>) -> Result<bool, String>
         return Ok(true);
     }
     Ok(false)
+}
+
+// ---------------------------------------------------------------------------
+// Unified external meeting integrations
+// ---------------------------------------------------------------------------
+
+#[tauri::command]
+pub fn integration_get_statuses(
+    state: State<'_, SharedIntegrationService>,
+) -> Result<IntegrationStatuses, ApiError> {
+    state.statuses()
+}
+
+#[tauri::command]
+pub fn integration_connect(
+    state: State<'_, SharedIntegrationService>,
+    connector: String,
+) -> Result<ProviderConnectionStatus, ApiError> {
+    state.connect(&connector)
+}
+
+#[tauri::command]
+pub fn integration_disconnect(
+    state: State<'_, SharedIntegrationService>,
+    connector: String,
+) -> Result<ProviderConnectionStatus, ApiError> {
+    state.disconnect(&connector)
+}
+
+#[tauri::command]
+pub fn integration_sync_google_calendar(
+    state: State<'_, SharedIntegrationService>,
+) -> Result<(), ApiError> {
+    state.sync_google_calendar()
+}
+
+#[tauri::command]
+pub async fn integration_create_meeting(
+    state: State<'_, SharedIntegrationService>,
+    provider: String,
+    req: ExternalMeetingRequest,
+) -> Result<ExternalMeetingResult, ApiError> {
+    let service = state.inner().clone();
+    service.create_meeting(&provider, req).await
+}
+
+#[tauri::command]
+pub async fn integration_get_meeting(
+    state: State<'_, SharedIntegrationService>,
+    provider: String,
+    external_id: String,
+) -> Result<ExternalMeetingResult, ApiError> {
+    let service = state.inner().clone();
+    service.get_meeting(&provider, &external_id).await
+}
+
+#[tauri::command]
+pub async fn integration_update_meeting(
+    state: State<'_, SharedIntegrationService>,
+    provider: String,
+    req: UpdateExternalMeetingRequest,
+) -> Result<ExternalMeetingResult, ApiError> {
+    let service = state.inner().clone();
+    service.update_meeting(&provider, req).await
+}
+
+#[tauri::command]
+pub async fn integration_delete_meeting(
+    state: State<'_, SharedIntegrationService>,
+    provider: String,
+    external_id: String,
+) -> Result<(), ApiError> {
+    let service = state.inner().clone();
+    service.delete_meeting(&provider, &external_id).await
 }

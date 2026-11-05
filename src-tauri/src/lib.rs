@@ -1,5 +1,6 @@
 pub mod database;
 pub mod commands;
+pub mod integrations;
 
 use database::DbState;
 use std::sync::Mutex;
@@ -34,6 +35,8 @@ pub fn run() {
             app.manage(commands::OllamaProcessState {
                 child: Mutex::new(None),
             });
+
+            app.manage(integrations::create_service(app.handle()));
 
             Ok(())
         })
@@ -103,6 +106,14 @@ pub fn run() {
             commands::tts_download_model,
             commands::tts_check_model,
             commands::tts_list_downloaded,
+            commands::integration_get_statuses,
+            commands::integration_connect,
+            commands::integration_disconnect,
+            commands::integration_sync_google_calendar,
+            commands::integration_create_meeting,
+            commands::integration_get_meeting,
+            commands::integration_update_meeting,
+            commands::integration_delete_meeting,
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")

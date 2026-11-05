@@ -2,7 +2,7 @@ pub mod models;
 pub mod queries;
 
 use rusqlite::{Connection, Result};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 use tauri::AppHandle;
 use tauri::Manager;
@@ -18,14 +18,27 @@ pub fn get_db_path(app: &AppHandle) -> PathBuf {
 }
 
 pub fn init_database(app: &AppHandle) -> Result<Connection> {
-    let db_path = get_db_path(app);
-    let conn = Connection::open(&db_path)?;
-    
+    init_database_at(&get_db_path(app))
+}
+
+/// Initialize a DayOS database at an explicit path.
+///
+/// This is used by the app at startup and by integration tests that need an
+/// isolated SQLite database without launching Tauri.
+pub fn init_database_at(db_path: &Path) -> Result<Connection> {
+    if let Some(parent) = db_path.parent() {
+        std::fs::create_dir_all(parent)
+            .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?;
+    }
+
+    let conn = Connection::open(db_path)?;
+
     conn.execute_batch("PRAGMA journal_mode=WAL;")?;
     conn.execute_batch("PRAGMA foreign_keys=ON;")?;
-    
+    conn.execute_batch("PRAGMA busy_timeout=5000;")?;
+
     create_tables(&conn)?;
-    
+
     Ok(conn)
 }
 
@@ -233,6 +246,25 @@ fn create_tables(conn: &Connection) -> Result<()> {
             created_at TEXT NOT NULL DEFAULT (datetime('now'))
         );
 
+        -- Non-sensitive integration metadata. OAuth credentials are stored
+        -- separately by the Windows credential store and are never written here.
+        CREATE TABLE IF NOT EXISTS integration_accounts (
+            id TEXT PRIMARY KEY,
+            provider TEXT NOT NULL UNIQUE,
+            account_email TEXT,
+            display_name TEXT,
+            status TEXT NOT NULL DEFAULT 'not_connected',
+            scopes TEXT NOT NULL DEFAULT '[]',
+            enabled_features TEXT NOT NULL DEFAULT '[]',
+            sync_token TEXT,
+            calendar_id TEXT,
+            last_synced_at TEXT,
+            last_error TEXT,
+            metadata TEXT NOT NULL DEFAULT '{}',
+            connected_at TEXT,
+            updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+        );
+
         CREATE TABLE IF NOT EXISTS ai_messages (
             id TEXT PRIMARY KEY,
             role TEXT NOT NULL CHECK(role IN ('user', 'assistant', 'system')),
@@ -369,5 +401,84 @@ fn create_tables(conn: &Connection) -> Result<()> {
         conn.execute("ALTER TABLE meetings ADD COLUMN external_id TEXT", [])?;
     }
 
+    // Integration meeting metadata. These columns are additive and keep the
+    // existing local meeting workflow intact.
+    add_column_if_missing(&conn, "meetings", "timezone", "timezone TEXT")?;
+    add_column_if_missing(&conn, "meetings", "passcode", "passcode TEXT")?;
+    add_column_if_missing(
+        &conn,
+        "meetings",
+        "calendar_event_id",
+        "calendar_event_id TEXT",
+    )?;
+    add_column_if_missing(&conn, "meetings", "calendar_id", "calendar_id TEXT")?;
+    add_column_if_missing(
+        &conn,
+        "meetings",
+        "calendar_connection_id",
+        "calendar_connection_id TEXT",
+    )?;
+    add_column_if_missing(
+        &conn,
+        "meetings",
+        "participants",
+        "participants TEXT",
+    )?;
+    add_column_if_missing(
+        &conn,
+        "meetings",
+        "meeting_status",
+        "meeting_status TEXT NOT NULL DEFAULT 'confirmed'",
+    )?;
+    add_column_if_missing(
+        &conn,
+        "meetings",
+        "provider_metadata",
+        "provider_metadata TEXT",
+    )?;
+
+    // Legacy iCal imports were local-only records. Preserve the meetings but
+    // normalize their provider so they can never masquerade as a live
+    // Google/Zoom connection.
+    conn.execute(
+        "UPDATE meetings
+         SET external_provider = 'none'
+         WHERE external_provider IS NULL
+            OR external_provider IN ('google_calendar', 'ical', 'manual')",
+        [],
+    )?;
+    conn.execute(
+        "UPDATE meetings SET meeting_status = 'confirmed' WHERE meeting_status IS NULL",
+        [],
+    )?;
+
+    conn.execute_batch(
+        "CREATE UNIQUE INDEX IF NOT EXISTS idx_meetings_calendar_event
+            ON meetings(calendar_connection_id, calendar_id, calendar_event_id)
+            WHERE calendar_event_id IS NOT NULL;
+         CREATE INDEX IF NOT EXISTS idx_meetings_external_provider
+            ON meetings(external_provider);",
+    )?;
+
+    Ok(())
+}
+
+fn add_column_if_missing(
+    conn: &Connection,
+    table: &str,
+    column: &str,
+    definition: &str,
+) -> Result<()> {
+    let sql = format!(
+        "SELECT COUNT(*) FROM pragma_table_info('{}') WHERE name = ?1",
+        table
+    );
+    let has_col: i64 = conn.query_row(&sql, rusqlite::params![column], |row| row.get(0))?;
+    if has_col == 0 {
+        conn.execute(
+            &format!("ALTER TABLE {} ADD COLUMN {}", table, definition),
+            [],
+        )?;
+    }
     Ok(())
 }

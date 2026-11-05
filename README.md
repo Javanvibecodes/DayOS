@@ -43,7 +43,7 @@ Official releases are compiled, signed, and published exclusively by **Javanvibe
 - **Command Palette (`Ctrl+K`)** — Global keyboard-driven search and quick actions without taking your hands off the keyboard.
 - **Built-in Keyboard Shortcuts** — Intuitive navigation shortcuts (press `?` anywhere to view).
 - **Local Collaboration & Lock-in** — Host or join synchronized Pomodoro sessions with nearby peers over your local network using Device Identifiers (zero cloud accounts).
-- **Google Calendar 2-Way Sync & Video Meetings** — Two-way event synchronization with 1-click **Google Meet** and **Zoom** meeting link generators.
+- **Google Calendar, Meet & Zoom Integrations** — Official Google Calendar API sync plus real **Google Meet** and **Zoom** meeting creation through connected provider accounts. OAuth credentials are stored locally in Windows Credential Manager; no DayOS account or cloud database is required.
 - **Multimodal Local AI Assistant** — Voice & text productivity agent supporting on-demand local models (**Ollama**) and cloud APIs with **Kokoro & Piper** local neural voices.
 - **Themes & Customization** — Dark, Light, and System appearance modes with four distinct accent palettes.
 - **Windows Integration** — Optional auto-start on Windows boot, minimized startup, and native notifications.

@@ -16,11 +16,17 @@ import {
 } from '@/lib/shortcuts';
 import { toast } from '@/stores/toastStore';
 import { THEME_PALETTES, applyAppearance, resolveColorMode, type ThemeColor } from '@/lib/theme';
-import { connectorService } from '@/services/connectorService';
+import { meetingIntegrationService } from '@/services/meetingIntegrationService';
 import { aiAgentService, defaultAISettings, LOCAL_NEURAL_VOICES, speechService, ollamaService } from '@/services/aiAgentService';
 import { useDeviceStore } from '@/stores/deviceStore';
 import { MobileSyncModal } from '@/components/modals/MobileSyncModal';
-import type { CalendarConnector, AISettings } from '@/types';
+import type {
+  AISettings,
+  ConnectorId,
+  ConnectorState,
+  IntegrationStatuses,
+  ProviderConnectionStatus,
+} from '@/types';
 
 type SettingsTab =
   | 'general'
@@ -60,6 +66,43 @@ async function ensureNotifPermission(): Promise<boolean> {
   } catch {
     return false;
   }
+}
+
+const CONNECTOR_STATUS_LABELS: Record<ConnectorState, string> = {
+  not_connected: 'Not connected',
+  needs_authorization: 'Needs authorization',
+  connecting: 'Connecting…',
+  connected: 'Connected',
+  syncing: 'Syncing…',
+  auth_expired: 'Authorization expired',
+  error: 'Error',
+};
+
+function connectorStatusClass(state: ConnectorState): string {
+  switch (state) {
+    case 'connected':
+      return 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20';
+    case 'syncing':
+    case 'connecting':
+      return 'bg-primary/10 text-primary border-primary/20';
+    case 'needs_authorization':
+    case 'auth_expired':
+      return 'bg-amber-500/10 text-amber-600 border-amber-500/20';
+    case 'error':
+      return 'bg-error/10 text-error border-error/20';
+    default:
+      return 'bg-surface-container text-on-surface-variant border-outline-variant/30';
+  }
+}
+
+function IntegrationStatusBadge({ status }: { status: ProviderConnectionStatus }) {
+  return (
+    <span
+      className={`text-[11px] font-semibold px-2 py-0.5 rounded-full border ${connectorStatusClass(status.state)}`}
+    >
+      {CONNECTOR_STATUS_LABELS[status.state] ?? status.state}
+    </span>
+  );
 }
 
 function TunePicker({
@@ -284,18 +327,68 @@ export function SettingsPage() {
   }, [ready, settings.colorMode, settings.theme]);
 
   const { currentDevice, initDevice } = useDeviceStore();
-  const [connectors, setConnectors] = useState<CalendarConnector[]>([]);
+  const [integrationStatuses, setIntegrationStatuses] = useState<IntegrationStatuses | null>(null);
+  const [integrationBusy, setIntegrationBusy] = useState<ConnectorId | null>(null);
   const [aiConfig, setAiConfig] = useState<AISettings>(defaultAISettings);
   const [mobileSyncOpen, setMobileSyncOpen] = useState(false);
-  const [icalInput, setIcalInput] = useState('');
-  const [googleEmailInput, setGoogleEmailInput] = useState('');
-  const [zoomEmailInput, setZoomEmailInput] = useState('');
 
   useEffect(() => {
     initDevice();
-    connectorService.getConnectors().then(setConnectors);
     aiAgentService.getSettings().then(setAiConfig);
+    meetingIntegrationService
+      .getStatuses()
+      .then(setIntegrationStatuses)
+      .catch(() => setIntegrationStatuses(null));
   }, [initDevice]);
+
+  const refreshIntegrationStatuses = async () => {
+    try {
+      setIntegrationStatuses(await meetingIntegrationService.getStatuses());
+    } catch (error) {
+      toast.error(meetingIntegrationService.errorMessage(error));
+    }
+  };
+
+  const handleIntegrationConnect = async (connector: ConnectorId) => {
+    setIntegrationBusy(connector);
+    try {
+      await meetingIntegrationService.connect(connector);
+      toast.success('Provider connected');
+    } catch (error) {
+      // Connecting is not enabled until OAuth is configured. Surface the real
+      // backend reason rather than pretending the account is connected.
+      toast.error(meetingIntegrationService.errorMessage(error));
+    } finally {
+      setIntegrationBusy(null);
+      await refreshIntegrationStatuses();
+    }
+  };
+
+  const handleIntegrationDisconnect = async (connector: ConnectorId) => {
+    setIntegrationBusy(connector);
+    try {
+      await meetingIntegrationService.disconnect(connector);
+      toast.success('Provider disconnected');
+    } catch (error) {
+      toast.error(meetingIntegrationService.errorMessage(error));
+    } finally {
+      setIntegrationBusy(null);
+      await refreshIntegrationStatuses();
+    }
+  };
+
+  const handleSyncGoogleCalendar = async () => {
+    setIntegrationBusy('google_calendar');
+    try {
+      await meetingIntegrationService.syncGoogleCalendar();
+      toast.success('Google Calendar sync complete');
+    } catch (error) {
+      toast.error(meetingIntegrationService.errorMessage(error));
+    } finally {
+      setIntegrationBusy(null);
+      await refreshIntegrationStatuses();
+    }
+  };
 
   const tabs: { id: SettingsTab; icon: string; label: string }[] = [
     { id: 'general', icon: 'tune', label: 'General' },
@@ -573,7 +666,9 @@ export function SettingsPage() {
                   <span className="material-symbols-outlined text-primary">link</span> External Account Connectors
                 </h3>
                 <p className="text-[14px] text-on-surface-variant">
-                  Link your Google Calendar, Google Meet, and Zoom accounts to import meetings directly into your local database.
+                  Connect real Google Calendar, Google Meet, and Zoom accounts. DayOS talks to the official provider APIs
+                  from the desktop backend; OAuth credentials are stored in Windows Credential Manager, never in the DayOS
+                  database.
                 </p>
               </div>
 
@@ -585,54 +680,69 @@ export function SettingsPage() {
                     <div>
                       <h4 className="text-[14px] font-semibold text-on-surface">Google Calendar</h4>
                       <p className="text-[12px] text-on-surface-variant">
-                        Sync meetings and events into DayOS. Paste your private iCal (.ics) feed URL or event text.
+                        Import events with the official Google Calendar API and incremental sync tokens. iCal feed
+                        imports are not used.
                       </p>
                     </div>
                   </div>
-                  {connectors.some((c) => c.provider === 'google_calendar') && (
-                    <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">
-                      Connected
-                    </span>
-                  )}
+                  {integrationStatuses && <IntegrationStatusBadge status={integrationStatuses.google_calendar} />}
                 </div>
 
-                <div className="space-y-3 pt-2">
-                  <input
-                    type="text"
-                    placeholder="Account label or email (e.g. work@gmail.com)"
-                    value={googleEmailInput}
-                    onChange={(e) => setGoogleEmailInput(e.target.value)}
-                    className="w-full bg-surface-container border border-outline-variant/30 rounded-lg px-[12px] py-[8px] text-[13px] text-on-surface focus:outline-none focus:border-primary"
-                  />
-                  <textarea
-                    rows={3}
-                    placeholder="Paste Google Calendar private iCal (.ics) text or feed URL"
-                    value={icalInput}
-                    onChange={(e) => setIcalInput(e.target.value)}
-                    className="w-full bg-surface-container border border-outline-variant/30 rounded-lg px-[12px] py-[8px] text-[12px] font-mono text-on-surface focus:outline-none focus:border-primary"
-                  />
-                  <div className="flex justify-end gap-2">
-                    <button
-                      onClick={async () => {
-                        if (!googleEmailInput.trim() && !icalInput.trim()) {
-                          toast.error('Please enter an account email or iCal content');
-                          return;
-                        }
-                        const conn = await connectorService.addGoogleCalendarConnector(
-                          googleEmailInput.trim() || 'Google Account',
-                          icalInput.trim()
-                        );
-                        if (icalInput.trim().includes('BEGIN:VCALENDAR') || icalInput.trim().includes('BEGIN:VEVENT')) {
-                          await connectorService.syncICalFeed(conn.id, icalInput);
-                        }
-                        setConnectors(await connectorService.getConnectors());
-                        setIcalInput('');
-                        setGoogleEmailInput('');
-                      }}
-                      className="px-[16px] py-[8px] bg-primary text-on-primary text-[12px] font-semibold rounded-lg hover:bg-primary/90 transition-colors"
-                    >
-                      Connect & Sync
-                    </button>
+                {integrationStatuses?.google_calendar.last_error && (
+                  <p className="text-[11px] text-error bg-error/5 border border-error/20 rounded-lg px-3 py-2">
+                    {integrationStatuses.google_calendar.last_error}
+                  </p>
+                )}
+
+                {integrationStatuses?.google_calendar.last_synced_at && (
+                  <p className="text-[11px] text-on-surface-variant/70">
+                    Last synced: {new Date(integrationStatuses.google_calendar.last_synced_at).toLocaleString()}
+                  </p>
+                )}
+
+                <div className="flex items-center justify-between flex-wrap gap-3 pt-2">
+                  <p className="text-[11px] text-on-surface-variant/70 max-w-lg">
+                    Requires a Google OAuth client configured for DayOS. Google Calendar and Google Meet share one
+                    Google account connection.
+                  </p>
+                  <div className="flex items-center gap-2">
+                    {integrationStatuses &&
+                      ['connected', 'syncing', 'auth_expired', 'error'].includes(
+                        integrationStatuses.google_calendar.state,
+                      ) && (
+                        <>
+                          {integrationStatuses.google_calendar.state === 'connected' && (
+                            <button
+                              onClick={handleSyncGoogleCalendar}
+                              disabled={integrationBusy !== null}
+                              className="px-[14px] py-[8px] rounded-lg border border-outline-variant/30 text-on-surface text-[12px] font-semibold hover:bg-surface-container transition-colors disabled:opacity-50"
+                            >
+                              Sync now
+                            </button>
+                          )}
+                          <button
+                            onClick={() => handleIntegrationDisconnect('google_calendar')}
+                            disabled={integrationBusy !== null}
+                            className="px-[14px] py-[8px] rounded-lg border border-error/30 text-error text-[12px] font-semibold hover:bg-error/10 transition-colors disabled:opacity-50"
+                          >
+                            Disconnect
+                          </button>
+                        </>
+                      )}
+                    {(!integrationStatuses ||
+                      !['connected', 'syncing', 'auth_expired', 'error'].includes(
+                        integrationStatuses.google_calendar.state,
+                      )) && (
+                      <button
+                        onClick={() => handleIntegrationConnect('google_calendar')}
+                        disabled={integrationBusy !== null}
+                        className="px-[16px] py-[8px] bg-primary text-on-primary text-[12px] font-semibold rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50"
+                      >
+                        {integrationStatuses?.google_calendar.state === 'needs_authorization'
+                          ? 'Authorize'
+                          : 'Connect'}
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>
@@ -645,33 +755,51 @@ export function SettingsPage() {
                     <div>
                       <h4 className="text-[14px] font-semibold text-on-surface">Google Meet</h4>
                       <p className="text-[12px] text-on-surface-variant">
-                        Generate instant Google Meet links for your meetings. Works with your Google Calendar connection.
+                        Create real Google Meet spaces through your Google account. No randomly generated links.
                       </p>
                     </div>
                   </div>
-                  {connectors.some((c) => c.provider === 'google_calendar') && (
-                    <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">
-                      Ready (via Google Calendar)
-                    </span>
-                  )}
+                  {integrationStatuses && <IntegrationStatusBadge status={integrationStatuses.google_meet} />}
                 </div>
 
-                <div className="space-y-3 pt-2">
-                  <div className="p-3 rounded-lg bg-surface border border-outline-variant/30 text-[12px] text-on-surface-variant">
-                    Google Meet links are automatically generated when you create meetings. No separate account needed — uses your Google Calendar connection.
-                  </div>
-                  <div className="flex justify-end gap-2">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const link = connectorService.generateGoogleMeetLink();
-                        navigator.clipboard.writeText(link);
-                        toast.success('Google Meet link generated & copied');
-                      }}
-                      className="px-[16px] py-[8px] bg-primary-container text-on-primary-container text-[12px] font-semibold rounded-lg hover:bg-primary-container/90 transition-colors"
-                    >
-                      Generate Meet Link
-                    </button>
+                {integrationStatuses?.google_meet.last_error && (
+                  <p className="text-[11px] text-error bg-error/5 border border-error/20 rounded-lg px-3 py-2">
+                    {integrationStatuses.google_meet.last_error}
+                  </p>
+                )}
+
+                <div className="flex items-center justify-between flex-wrap gap-3 pt-2">
+                  <p className="text-[11px] text-on-surface-variant/70 max-w-lg">
+                    Google Meet uses the same Google OAuth client as Google Calendar, with the Meet space-creation
+                    scope.
+                  </p>
+                  <div className="flex items-center gap-2">
+                    {integrationStatuses &&
+                      ['connected', 'syncing', 'auth_expired', 'error'].includes(
+                        integrationStatuses.google_meet.state,
+                      ) && (
+                        <button
+                          onClick={() => handleIntegrationDisconnect('google_meet')}
+                          disabled={integrationBusy !== null}
+                          className="px-[14px] py-[8px] rounded-lg border border-error/30 text-error text-[12px] font-semibold hover:bg-error/10 transition-colors disabled:opacity-50"
+                        >
+                          Disconnect
+                        </button>
+                      )}
+                    {(!integrationStatuses ||
+                      !['connected', 'syncing', 'auth_expired', 'error'].includes(
+                        integrationStatuses.google_meet.state,
+                      )) && (
+                      <button
+                        onClick={() => handleIntegrationConnect('google_meet')}
+                        disabled={integrationBusy !== null}
+                        className="px-[16px] py-[8px] bg-primary text-on-primary text-[12px] font-semibold rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50"
+                      >
+                        {integrationStatuses?.google_meet.state === 'needs_authorization'
+                          ? 'Authorize'
+                          : 'Connect'}
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>
@@ -684,68 +812,49 @@ export function SettingsPage() {
                     <div>
                       <h4 className="text-[14px] font-semibold text-on-surface">Zoom</h4>
                       <p className="text-[12px] text-on-surface-variant">
-                        Connect Zoom to create instant meetings and launch join links from DayOS timetable.
+                        Create real Zoom meetings through the Zoom API and join them from the DayOS timetable.
                       </p>
                     </div>
                   </div>
-                  {connectors.some((c) => c.provider === 'zoom') && (
-                    <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">
-                      Connected
-                    </span>
-                  )}
+                  {integrationStatuses && <IntegrationStatusBadge status={integrationStatuses.zoom} />}
                 </div>
 
-                <div className="flex items-center gap-3 pt-2">
-                  <input
-                    type="text"
-                    placeholder="Zoom Account Email or Personal Meeting ID"
-                    value={zoomEmailInput}
-                    onChange={(e) => setZoomEmailInput(e.target.value)}
-                    className="flex-1 bg-surface-container border border-outline-variant/30 rounded-lg px-[12px] py-[8px] text-[13px] text-on-surface focus:outline-none focus:border-primary"
-                  />
-                  <button
-                    onClick={async () => {
-                      await connectorService.addZoomConnector(zoomEmailInput.trim() || 'Zoom Account');
-                      setConnectors(await connectorService.getConnectors());
-                      setZoomEmailInput('');
-                    }}
-                    className="px-[16px] py-[8px] bg-primary text-on-primary text-[12px] font-semibold rounded-lg hover:bg-primary/90 transition-colors shrink-0"
-                  >
-                    Connect Zoom
-                  </button>
-                </div>
-              </div>
+                {integrationStatuses?.zoom.last_error && (
+                  <p className="text-[11px] text-error bg-error/5 border border-error/20 rounded-lg px-3 py-2">
+                    {integrationStatuses.zoom.last_error}
+                  </p>
+                )}
 
-              {/* Active Connectors List */}
-              {connectors.length > 0 && (
-                <div className="space-y-3 pt-2">
-                  <h4 className="text-[13px] font-bold text-on-surface">Active Connectors:</h4>
-                  <div className="space-y-2">
-                    {connectors.map((c) => (
-                      <div
-                        key={c.id}
-                        className="flex items-center justify-between p-[12px] rounded-lg bg-surface border border-outline-variant/20 text-xs"
-                      >
-                        <div>
-                          <span className="font-semibold text-on-surface uppercase tracking-wider text-[11px]">
-                            {c.provider.replace('_', ' ')}
-                          </span>
-                          <span className="text-on-surface-variant ml-2">({c.account_email})</span>
-                        </div>
+                <div className="flex items-center justify-between flex-wrap gap-3 pt-2">
+                  <p className="text-[11px] text-on-surface-variant/70 max-w-lg">
+                    Requires a Zoom OAuth app configured for DayOS with the meeting creation scopes.
+                  </p>
+                  <div className="flex items-center gap-2">
+                    {integrationStatuses &&
+                      ['connected', 'syncing', 'auth_expired', 'error'].includes(integrationStatuses.zoom.state) && (
                         <button
-                          onClick={async () => {
-                            await connectorService.removeConnector(c.id);
-                            setConnectors(await connectorService.getConnectors());
-                          }}
-                          className="text-error hover:underline text-[11px] font-medium"
+                          onClick={() => handleIntegrationDisconnect('zoom')}
+                          disabled={integrationBusy !== null}
+                          className="px-[14px] py-[8px] rounded-lg border border-error/30 text-error text-[12px] font-semibold hover:bg-error/10 transition-colors disabled:opacity-50"
                         >
                           Disconnect
                         </button>
-                      </div>
-                    ))}
+                      )}
+                    {(!integrationStatuses ||
+                      !['connected', 'syncing', 'auth_expired', 'error'].includes(
+                        integrationStatuses.zoom.state,
+                      )) && (
+                      <button
+                        onClick={() => handleIntegrationConnect('zoom')}
+                        disabled={integrationBusy !== null}
+                        className="px-[16px] py-[8px] bg-primary text-on-primary text-[12px] font-semibold rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50"
+                      >
+                        {integrationStatuses?.zoom.state === 'needs_authorization' ? 'Authorize' : 'Connect'}
+                      </button>
+                    )}
                   </div>
                 </div>
-              )}
+              </div>
             </section>
           )}
 

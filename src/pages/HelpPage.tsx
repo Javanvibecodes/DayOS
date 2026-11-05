@@ -486,19 +486,31 @@ export function HelpPage() {
           16. Google Calendar, Meet & Zoom Connectors
         </h2>
         <p className="text-on-surface-variant mb-4">
-          Import and coordinate meetings between DayOS and your calendar platforms:
+          Connect real provider accounts in <strong>Settings → Connectors</strong>. DayOS performs all provider API
+          calls from its desktop backend; the interface never receives OAuth tokens.
         </p>
         <ul className="list-disc pl-6 space-y-2 mb-4 text-on-surface-variant text-sm">
           <li>
-            <strong>Google Calendar 2-Way Sync:</strong> Paste your private iCal (.ics) feed URL in Settings to import existing events, or click "Push to Google Calendar" when creating meetings in DayOS.
+            <strong>Google Calendar:</strong> Uses the official Google Calendar API with OAuth 2.0 and incremental
+            sync tokens. Private iCal (.ics) feeds are not imported and are not treated as a connection.
           </li>
           <li>
-            <strong>Instant Video Meeting Links:</strong> In the Meeting Creation dialog, click "+ Google Meet" or "+ Zoom Link" to generate a joinable video conference URL with one click.
+            <strong>Google Meet &amp; Zoom:</strong> When a provider account is connected, DayOS creates real meetings
+            through the provider API and stores the returned join URL. It never invents meeting links.
           </li>
           <li>
-            <strong>One-Click Launching:</strong> Any scheduled meeting featuring a valid video link includes a prominent "Join Meeting" button that launches the target service directly.
+            <strong>Local-first credentials:</strong> OAuth credentials are kept in Windows Credential Manager. No
+            DayOS account, cloud database, or remote DayOS service is required.
+          </li>
+          <li>
+            <strong>One-Click Launching:</strong> Any scheduled meeting with a saved join link includes a "Join
+            Meeting" button that opens the provider directly.
           </li>
         </ul>
+        <p className="text-on-surface-variant text-sm">
+          Provider connection requires a Google and/or Zoom OAuth client to be configured for DayOS. Until then, the
+          Connectors screen reports the real status and will not display a fake "Connected" state.
+        </p>
       </section>
     </div>
   );

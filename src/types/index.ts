@@ -186,6 +186,13 @@ export const MEETING_REMINDER_OPTIONS = [
 
 export type MeetingReminderMinutes = (typeof MEETING_REMINDER_OPTIONS)[number];
 
+/**
+ * Normalized meeting provider. Provider identity is stored separately from the
+ * meeting URL so a manual link can never be mistaken for a live integration.
+ */
+export type MeetingProvider = 'none' | 'google_meet' | 'zoom';
+export type MeetingStatus = 'confirmed' | 'tentative' | 'cancelled';
+
 export interface Meeting {
   id: string;
   title: string;
@@ -194,14 +201,23 @@ export interface Meeting {
   start_time: string;
   end_time: string | null;
   meeting_url: string | null;
+  /** IANA timezone captured from an external provider, when available. */
+  timezone: string | null;
+  external_provider: MeetingProvider;
+  external_id: string | null;
+  passcode: string | null;
+  calendar_event_id: string | null;
+  calendar_id: string | null;
+  calendar_connection_id: string | null;
+  participants: string[] | null;
+  meeting_status: MeetingStatus;
+  provider_metadata: Record<string, unknown> | null;
   reminder_enabled: boolean;
   reminder_minutes: number | null;
   /** Up to 3 reminder offsets in minutes before start (e.g. 1440, 60, 15) */
   reminder_offsets: number[] | null;
   is_recurring: boolean;
   recurrence_rule: string | null;
-  external_provider?: 'google_calendar' | 'zoom' | 'ical' | 'manual' | null;
-  external_id?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -213,13 +229,21 @@ export interface CreateMeetingRequest {
   start_time: string;
   end_time?: string;
   meeting_url?: string;
+  timezone?: string;
+  external_provider?: MeetingProvider;
+  external_id?: string;
+  passcode?: string;
+  calendar_event_id?: string;
+  calendar_id?: string;
+  calendar_connection_id?: string;
+  participants?: string[];
+  meeting_status?: MeetingStatus;
+  provider_metadata?: Record<string, unknown>;
   reminder_enabled?: boolean;
   reminder_minutes?: number;
   reminder_offsets?: number[];
   is_recurring?: boolean;
   recurrence_rule?: string;
-  external_provider?: 'google_calendar' | 'zoom' | 'ical' | 'manual';
-  external_id?: string;
 }
 
 export interface UpdateMeetingRequest {
@@ -230,13 +254,21 @@ export interface UpdateMeetingRequest {
   start_time?: string;
   end_time?: string;
   meeting_url?: string;
+  timezone?: string;
+  external_provider?: MeetingProvider;
+  external_id?: string;
+  passcode?: string;
+  calendar_event_id?: string;
+  calendar_id?: string;
+  calendar_connection_id?: string;
+  participants?: string[];
+  meeting_status?: MeetingStatus;
+  provider_metadata?: Record<string, unknown>;
   reminder_enabled?: boolean;
   reminder_minutes?: number;
   reminder_offsets?: number[];
   is_recurring?: boolean;
   recurrence_rule?: string;
-  external_provider?: 'google_calendar' | 'zoom' | 'ical' | 'manual';
-  external_id?: string;
 }
 
 // Settings types
@@ -481,17 +513,73 @@ export interface LockinParticipant {
   joined_at: string;
 }
 
-// External Calendar & Video Connectors
-export type CalendarConnectorProvider = 'google_calendar' | 'zoom' | 'ical';
+// External Calendar & Video Integrations
+//
+// OAuth credentials never cross the Tauri boundary. The renderer only receives
+// the non-sensitive connection status described below.
+export type ConnectorId = 'google_calendar' | 'google_meet' | 'zoom';
 
-export interface CalendarConnector {
-  id: string;
-  provider: CalendarConnectorProvider;
-  account_email?: string | null;
-  feed_url?: string | null;
-  sync_enabled: boolean;
-  last_synced_at?: string | null;
-  created_at: string;
+export type ConnectorState =
+  | 'not_connected'
+  | 'needs_authorization'
+  | 'connecting'
+  | 'connected'
+  | 'syncing'
+  | 'auth_expired'
+  | 'error';
+
+export interface ProviderConnectionStatus {
+  provider: ConnectorId;
+  state: ConnectorState;
+  account_email: string | null;
+  display_name: string | null;
+  scopes: string[];
+  read_access: boolean;
+  write_access: boolean;
+  last_synced_at: string | null;
+  last_error: string | null;
+  enabled_features: string[];
+}
+
+export interface IntegrationStatuses {
+  google_calendar: ProviderConnectionStatus;
+  google_meet: ProviderConnectionStatus;
+  zoom: ProviderConnectionStatus;
+}
+
+export interface IntegrationError {
+  code: string;
+  message: string;
+  retryable: boolean;
+}
+
+export interface ExternalMeetingRequest {
+  title: string;
+  description?: string;
+  date: string;
+  start_time: string;
+  end_time?: string;
+  timezone?: string;
+  participants?: string[];
+}
+
+export interface ExternalMeetingResult {
+  provider: Exclude<MeetingProvider, 'none'>;
+  external_id: string;
+  meeting_url: string;
+  passcode: string | null;
+  provider_metadata: Record<string, unknown>;
+}
+
+export interface UpdateExternalMeetingRequest {
+  external_id: string;
+  title?: string;
+  description?: string;
+  date?: string;
+  start_time?: string;
+  end_time?: string;
+  timezone?: string;
+  participants?: string[];
 }
 
 // AI Agent types

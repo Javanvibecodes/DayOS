@@ -460,7 +460,7 @@ pub fn update_category(conn: &Connection, req: UpdateCategoryRequest) -> Result<
 }
 
 // Meetings
-const MEETING_COLS: &str = "id, title, description, date, start_time, end_time, meeting_url, reminder_enabled, reminder_minutes, reminder_offsets, is_recurring, recurrence_rule, created_at, updated_at";
+const MEETING_COLS: &str = "id, title, description, date, start_time, end_time, meeting_url, timezone, external_provider, external_id, passcode, calendar_event_id, calendar_id, calendar_connection_id, participants, meeting_status, provider_metadata, reminder_enabled, reminder_minutes, reminder_offsets, is_recurring, recurrence_rule, created_at, updated_at";
 
 fn parse_offsets(json: Option<String>) -> Option<Vec<i32>> {
     json.and_then(|s| serde_json::from_str(&s).ok())
@@ -470,8 +470,19 @@ fn serialize_offsets(offsets: Option<Vec<i32>>) -> Option<String> {
     offsets.map(|v| serde_json::to_string(&v).unwrap_or_else(|_| "[]".to_string()))
 }
 
+fn parse_string_list(json: Option<String>) -> Option<Vec<String>> {
+    json.and_then(|s| serde_json::from_str(&s).ok())
+}
+
+fn parse_json_value(json: Option<String>) -> Option<serde_json::Value> {
+    json.and_then(|s| serde_json::from_str(&s).ok())
+}
+
 fn map_meeting(row: &rusqlite::Row) -> Result<Meeting> {
-    let offsets_json: Option<String> = row.get(9)?;
+    let external_provider: Option<String> = row.get(8)?;
+    let participants_json: Option<String> = row.get(14)?;
+    let metadata_json: Option<String> = row.get(16)?;
+    let offsets_json: Option<String> = row.get(19)?;
     Ok(Meeting {
         id: row.get(0)?,
         title: row.get(1)?,
@@ -480,13 +491,27 @@ fn map_meeting(row: &rusqlite::Row) -> Result<Meeting> {
         start_time: row.get(4)?,
         end_time: row.get(5)?,
         meeting_url: row.get(6)?,
-        reminder_enabled: row.get::<_, i32>(7)? != 0,
-        reminder_minutes: row.get(8)?,
+        timezone: row.get(7)?,
+        external_provider: external_provider
+            .filter(|value| !value.trim().is_empty())
+            .unwrap_or_else(|| "none".to_string()),
+        external_id: row.get(9)?,
+        passcode: row.get(10)?,
+        calendar_event_id: row.get(11)?,
+        calendar_id: row.get(12)?,
+        calendar_connection_id: row.get(13)?,
+        participants: parse_string_list(participants_json),
+        meeting_status: row
+            .get::<_, Option<String>>(15)?
+            .unwrap_or_else(|| "confirmed".to_string()),
+        provider_metadata: parse_json_value(metadata_json),
+        reminder_enabled: row.get::<_, i32>(17)? != 0,
+        reminder_minutes: row.get(18)?,
         reminder_offsets: parse_offsets(offsets_json),
-        is_recurring: row.get::<_, i32>(10)? != 0,
-        recurrence_rule: row.get(11)?,
-        created_at: row.get(12)?,
-        updated_at: row.get(13)?,
+        is_recurring: row.get::<_, i32>(20)? != 0,
+        recurrence_rule: row.get(21)?,
+        created_at: row.get(22)?,
+        updated_at: row.get(23)?,
     })
 }
 
@@ -500,14 +525,53 @@ pub fn create_meeting(conn: &Connection, req: CreateMeetingRequest) -> Result<Me
         v
     });
     let offsets_json = serialize_offsets(offsets);
+    let external_provider = req.external_provider.unwrap_or_else(|| "none".to_string());
+    let meeting_status = req.meeting_status.unwrap_or_else(|| "confirmed".to_string());
+    let participants_json = req
+        .participants
+        .map(|participants| serde_json::to_string(&participants).unwrap_or_else(|_| "[]".to_string()));
+    let provider_metadata_json = req
+        .provider_metadata
+        .map(|metadata| serde_json::to_string(&metadata).unwrap_or_else(|_| "{}".to_string()));
 
     conn.execute(
-        "INSERT INTO meetings (id, title, description, date, start_time, end_time, meeting_url, reminder_enabled, reminder_minutes, reminder_offsets, is_recurring, recurrence_rule)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)",
+        "INSERT INTO meetings (
+            id, title, description, date, start_time, end_time, meeting_url,
+            timezone, external_provider, external_id, passcode, calendar_event_id,
+            calendar_id, calendar_connection_id, participants, meeting_status,
+            provider_metadata, reminder_enabled, reminder_minutes, reminder_offsets,
+            is_recurring, recurrence_rule
+         )
+         VALUES (
+            ?1, ?2, ?3, ?4, ?5, ?6, ?7,
+            ?8, ?9, ?10, ?11, ?12,
+            ?13, ?14, ?15, ?16,
+            ?17, ?18, ?19, ?20,
+            ?21, ?22
+         )",
         params![
-            id, req.title, req.description, req.date, req.start_time,
-            req.end_time, req.meeting_url, reminder_enabled, req.reminder_minutes,
-            offsets_json, is_recurring, req.recurrence_rule
+            id,
+            req.title,
+            req.description,
+            req.date,
+            req.start_time,
+            req.end_time,
+            req.meeting_url,
+            req.timezone,
+            external_provider,
+            req.external_id,
+            req.passcode,
+            req.calendar_event_id,
+            req.calendar_id,
+            req.calendar_connection_id,
+            participants_json,
+            meeting_status,
+            provider_metadata_json,
+            reminder_enabled,
+            req.reminder_minutes,
+            offsets_json,
+            is_recurring,
+            req.recurrence_rule
         ],
     )?;
 
@@ -544,6 +608,13 @@ pub fn update_meeting(conn: &Connection, req: UpdateMeetingRequest) -> Result<Me
         }
     };
 
+    let participants_json = req
+        .participants
+        .map(|participants| serde_json::to_string(&participants).unwrap_or_else(|_| "[]".to_string()));
+    let provider_metadata_json = req
+        .provider_metadata
+        .map(|metadata| serde_json::to_string(&metadata).unwrap_or_else(|_| "{}".to_string()));
+
     conn.execute(
         "UPDATE meetings SET
             title = COALESCE(?1, title),
@@ -552,20 +623,44 @@ pub fn update_meeting(conn: &Connection, req: UpdateMeetingRequest) -> Result<Me
             start_time = COALESCE(?4, start_time),
             end_time = COALESCE(?5, end_time),
             meeting_url = COALESCE(?6, meeting_url),
-            reminder_enabled = COALESCE(?7, reminder_enabled),
-            reminder_minutes = COALESCE(?8, reminder_minutes),
+            timezone = COALESCE(?7, timezone),
+            external_provider = COALESCE(?8, external_provider),
+            external_id = COALESCE(?9, external_id),
+            passcode = COALESCE(?10, passcode),
+            calendar_event_id = COALESCE(?11, calendar_event_id),
+            calendar_id = COALESCE(?12, calendar_id),
+            calendar_connection_id = COALESCE(?13, calendar_connection_id),
+            participants = COALESCE(?14, participants),
+            meeting_status = COALESCE(?15, meeting_status),
+            provider_metadata = COALESCE(?16, provider_metadata),
+            reminder_enabled = COALESCE(?17, reminder_enabled),
+            reminder_minutes = COALESCE(?18, reminder_minutes),
             reminder_offsets = CASE
-                WHEN ?9 = 'keep' THEN reminder_offsets
-                WHEN ?9 = 'set:[]' THEN NULL
-                ELSE substr(?9, 5)
+                WHEN ?19 = 'keep' THEN reminder_offsets
+                WHEN ?19 = 'set:[]' THEN NULL
+                ELSE substr(?19, 5)
             END,
-            is_recurring = COALESCE(?10, is_recurring),
-            recurrence_rule = COALESCE(?11, recurrence_rule),
+            is_recurring = COALESCE(?20, is_recurring),
+            recurrence_rule = COALESCE(?21, recurrence_rule),
             updated_at = datetime('now')
-         WHERE id = ?12",
+         WHERE id = ?22",
         params![
-            req.title, req.description, req.date, req.start_time,
-            req.end_time, req.meeting_url,
+            req.title,
+            req.description,
+            req.date,
+            req.start_time,
+            req.end_time,
+            req.meeting_url,
+            req.timezone,
+            req.external_provider,
+            req.external_id,
+            req.passcode,
+            req.calendar_event_id,
+            req.calendar_id,
+            req.calendar_connection_id,
+            participants_json,
+            req.meeting_status,
+            provider_metadata_json,
             req.reminder_enabled.map(|v| v as i32),
             req.reminder_minutes,
             offsets_action,
