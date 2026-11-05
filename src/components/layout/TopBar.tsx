@@ -158,35 +158,35 @@ export function TopBar({ onOpenHelp }: TopBarProps) {
         {/* Vertical divider */}
         <div className="h-4 w-[1px] bg-outline-variant/30 mx-[2px]" />
 
-        {/* Window Actions: Minimize, Maximize/Restore, Close */}
-        <div className="flex items-center gap-[14px]">
+        {/* Window Actions: Minimize, Maximize/Restore, Close — half size, purple hover */}
+        <div className="flex items-center gap-[6px]">
           <button
             type="button"
             onClick={handleMinimize}
-            className="p-[5px] text-on-surface-variant hover:text-[#a855f7] transition-colors cursor-pointer select-none flex items-center justify-center rounded-sm"
+            className="p-[2px] text-on-surface-variant hover:text-[#a855f7] transition-colors cursor-pointer select-none flex items-center justify-center rounded-[3px]"
             title="Minimize"
             aria-label="Minimize"
           >
-            <svg width="7" height="7" viewBox="0 0 7 7" fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round">
-              <line x1="0.5" y1="5.5" x2="6.5" y2="5.5" />
+            <svg width="4" height="4" viewBox="0 0 4 4" fill="none" stroke="currentColor" strokeWidth="1" strokeLinecap="round">
+              <line x1="0.5" y1="3.5" x2="3.5" y2="3.5" />
             </svg>
           </button>
 
           <button
             type="button"
             onClick={handleMaximize}
-            className="p-[5px] text-on-surface-variant hover:text-[#a855f7] transition-colors cursor-pointer select-none flex items-center justify-center rounded-sm"
+            className="p-[2px] text-on-surface-variant hover:text-[#a855f7] transition-colors cursor-pointer select-none flex items-center justify-center rounded-[3px]"
             title={isMaximized ? 'Restore' : 'Maximize'}
             aria-label={isMaximized ? 'Restore' : 'Maximize'}
           >
             {isMaximized ? (
-              <svg width="7" height="7" viewBox="0 0 7 7" fill="none" stroke="currentColor" strokeWidth="1.1" strokeLinejoin="round">
-                <rect x="1.8" y="0.6" width="4.6" height="4.6" rx="0.5" />
-                <polyline points="0.6,2.2 0.6,6.4 4.8,6.4" />
+              <svg width="4" height="4" viewBox="0 0 4 4" fill="none" stroke="currentColor" strokeWidth="0.9" strokeLinejoin="round">
+                <rect x="1" y="0.3" width="2.7" height="2.7" rx="0.3" />
+                <polyline points="0.3,1.2 0.3,3.4 2.5,3.4" />
               </svg>
             ) : (
-              <svg width="7" height="7" viewBox="0 0 7 7" fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round">
-                <rect x="0.6" y="0.6" width="5.8" height="5.8" rx="0.5" />
+              <svg width="4" height="4" viewBox="0 0 4 4" fill="none" stroke="currentColor" strokeWidth="1" strokeLinejoin="round">
+                <rect x="0.3" y="0.3" width="3.4" height="3.4" rx="0.3" />
               </svg>
             )}
           </button>
@@ -194,13 +194,13 @@ export function TopBar({ onOpenHelp }: TopBarProps) {
           <button
             type="button"
             onClick={handleClose}
-            className="p-[5px] text-on-surface-variant hover:text-[#a855f7] transition-colors cursor-pointer select-none flex items-center justify-center rounded-sm"
+            className="p-[2px] text-on-surface-variant hover:text-[#a855f7] transition-colors cursor-pointer select-none flex items-center justify-center rounded-[3px]"
             title="Close"
             aria-label="Close"
           >
-            <svg width="7" height="7" viewBox="0 0 7 7" fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round">
-              <line x1="1" y1="1" x2="6" y2="6" />
-              <line x1="6" y1="1" x2="1" y2="6" />
+            <svg width="4" height="4" viewBox="0 0 4 4" fill="none" stroke="currentColor" strokeWidth="1" strokeLinecap="round">
+              <line x1="0.6" y1="0.6" x2="3.4" y2="3.4" />
+              <line x1="3.4" y1="0.6" x2="0.6" y2="3.4" />
             </svg>
           </button>
         </div>
