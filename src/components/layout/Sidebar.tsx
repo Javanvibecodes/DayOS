@@ -45,14 +45,21 @@ export function Sidebar() {
           sidebarCollapsed ? 'justify-center px-0' : 'justify-start px-[8px] gap-[18px]',
         )}
       >
-        <img
-          src="/favicon-32x32.png"
-          alt="DayOS"
+        <div
           className={cn(
-            'rounded-xl shrink-0',
+            'rounded-xl bg-black flex items-center justify-center shrink-0',
             sidebarCollapsed ? 'w-10 h-10' : 'w-[72px] h-[72px]',
           )}
-        />
+        >
+          <img
+            src="/logo-256.png"
+            alt="DayOS"
+            className={cn(
+              'rounded-[inherit]',
+              sidebarCollapsed ? 'w-8 h-8' : 'w-[56px] h-[56px]',
+            )}
+          />
+        </div>
         {!sidebarCollapsed && (
           <div>
             <h1 className="font-bold text-on-surface text-[30px] leading-tight">DayOS</h1>

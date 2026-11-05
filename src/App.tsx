@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Sidebar } from '@/components/layout/Sidebar';
 import { TopBar } from '@/components/layout/TopBar';
-import { WindowControls } from '@/components/layout/WindowControls';
 import { useUIStore } from '@/stores/uiStore';
 import { useTaskStore } from '@/stores/taskStore';
 import { useGoalStore } from '@/stores/goalStore';
@@ -282,17 +281,11 @@ function App() {
 
   return (
     <div className="flex h-screen w-full overflow-hidden bg-background text-on-background">
-      {/* Window controls above sidebar */}
-      <div className="flex flex-col w-16 lg:w-72 shrink-0 bg-surface border-r-2 border-outline-variant/50">
-        <div className="flex items-center justify-end p-[4px] pt-[6px]">
-          <WindowControls />
-        </div>
-        {/* Sidebar - part of flex flow */}
-        <Sidebar />
-      </div>
+      {/* Sidebar - part of flex flow */}
+      <Sidebar />
 
       {/* Main Content Area - flex-1 fills remaining space */}
-      <div className="flex-1 flex flex-col h-full min-w-0 bg-background">
+      <div className="flex-1 flex flex-col h-full min-w-0 border-l-2 border-outline-variant/50 pl-[60px] bg-background">
         <TopBar
           onOpenHelp={() => setHelpModalOpen(true)}
         />

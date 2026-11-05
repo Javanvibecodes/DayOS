@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useUIStore } from '@/stores/uiStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { format } from 'date-fns';
+import { getCurrentWindow } from '@tauri-apps/api/window';
 
 interface TopBarProps {
   onOpenHelp?: () => void;
@@ -11,8 +12,41 @@ export function TopBar({ onOpenHelp }: TopBarProps) {
   const { setCommandPaletteOpen } = useUIStore();
   const displayName = useSettingsStore((s) => s.displayName);
   const [showNotifications, setShowNotifications] = useState(false);
+  const [isMaximized, setIsMaximized] = useState(false);
   const today = new Date();
   const avatarInitial = (displayName || 'U').trim().charAt(0).toUpperCase() || 'U';
+
+  useEffect(() => {
+    const win = getCurrentWindow();
+    const checkMaximized = async () => {
+      const max = await win.isMaximized();
+      setIsMaximized(max);
+    };
+    checkMaximized();
+    
+    const setupListener = async () => {
+      const unlisten = await win.onResized(() => {
+        checkMaximized();
+      });
+      return unlisten;
+    };
+    
+    let unlistenFn: (() => void) | null = null;
+    setupListener().then(fn => { unlistenFn = fn; });
+    return () => { if (unlistenFn) unlistenFn(); };
+  }, []);
+
+  const win = getCurrentWindow();
+  const handleMinimize = () => win.minimize();
+  const handleMaximize = async () => {
+    if (isMaximized) {
+      await win.unmaximize();
+    } else {
+      await win.maximize();
+    }
+    setIsMaximized(!isMaximized);
+  };
+  const handleClose = () => win.close();
 
   const noDragStyle: React.CSSProperties = { WebkitAppRegion: 'no-drag' } as React.CSSProperties;
 
@@ -20,13 +54,39 @@ export function TopBar({ onOpenHelp }: TopBarProps) {
     <header
       className="h-16 bg-surface border-b border-outline-variant/20 flex justify-between items-center px-[32px] shrink-0 relative select-none"
     >
-      {/* Left: Logo + Day & Date */}
-      <div className="flex items-center gap-[14px] min-w-0" style={noDragStyle}>
-        <img
-          src="/favicon-32x32.png"
-          alt="DayOS"
-          className="w-8 h-8 rounded-lg shrink-0"
-        />
+      {/* Left: Window Controls (small, left-aligned) + Day & Date */}
+      <div className="flex items-center gap-[12px] min-w-0" style={noDragStyle}>
+        {/* Window Controls */}
+        <div className="flex items-center gap-[1px]">
+          <button
+            onClick={handleMinimize}
+            className="w-6 h-6 flex items-center justify-center text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-colors rounded-[4px]"
+            title="Minimize"
+            aria-label="Minimize"
+          >
+            <span className="material-symbols-outlined text-[14px]">minimize</span>
+          </button>
+          <button
+            onClick={handleMaximize}
+            className="w-6 h-6 flex items-center justify-center text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-colors rounded-[4px]"
+            title={isMaximized ? 'Restore' : 'Maximize'}
+            aria-label={isMaximized ? 'Restore' : 'Maximize'}
+          >
+            <span className="material-symbols-outlined text-[14px]">
+              {isMaximized ? 'fullscreen_exit' : 'fullscreen'}
+            </span>
+          </button>
+          <button
+            onClick={handleClose}
+            className="w-6 h-6 flex items-center justify-center text-on-surface-variant hover:text-error hover:bg-error-container/20 transition-colors rounded-[4px]"
+            title="Close"
+            aria-label="Close"
+          >
+            <span className="material-symbols-outlined text-[14px]">close</span>
+          </button>
+        </div>
+        
+        {/* Day & Date */}
         <p className="font-mono text-[13px] text-primary font-semibold whitespace-nowrap">
           {format(today, 'EEEE, MMMM d')}
         </p>
