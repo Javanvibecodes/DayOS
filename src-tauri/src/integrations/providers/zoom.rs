@@ -2,17 +2,23 @@ use async_trait::async_trait;
 
 use super::{MeetingProvider, ProviderContext};
 use crate::integrations::types::{
-    ApiError, ApiResult, ExternalMeetingRequest, ExternalMeetingResult,
-    UpdateExternalMeetingRequest, PROVIDER_ZOOM,
+    ApiError, ApiResult, ExternalMeetingRequest, ExternalMeetingResult, UpdateExternalMeetingRequest, PROVIDER_ZOOM,
 };
-
-pub struct ZoomProvider;
 
 fn not_ready() -> ApiError {
     ApiError::not_configured(
         "Zoom needs OAuth configuration and a connected Zoom account before meetings can be created.",
     )
 }
+
+/// Provider adapter for Zoom.
+///
+/// When a user schedules a meeting with a Zoom link, DayOS uses the Zoom
+/// REST API `POST /v2/users/me/meetings` endpoint. The required granular
+/// scopes are `meeting:write:meeting` (or the legacy `meeting:write`).
+/// If a client secret is configured, the request includes Basic auth; otherwise
+/// Zoom's public-client PKCE flow is used.
+pub struct ZoomProvider;
 
 #[async_trait]
 impl MeetingProvider for ZoomProvider {
