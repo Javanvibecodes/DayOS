@@ -14,6 +14,7 @@ export function Sidebar() {
     { id: 'routines' as const, label: 'Routines', icon: 'routine' },
     { id: 'notes' as const, label: 'Notes', icon: 'sticky_note_2' },
     { id: 'pomodoro' as const, label: 'Pomodoro', icon: 'timer' },
+    { id: 'collaborate' as const, label: 'Collaborate', icon: 'hub' },
   ];
 
   const footerNavItems = [

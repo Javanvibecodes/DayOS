@@ -16,8 +16,22 @@ import {
 } from '@/lib/shortcuts';
 import { toast } from '@/stores/toastStore';
 import { THEME_PALETTES, applyAppearance, resolveColorMode, type ThemeColor } from '@/lib/theme';
+import { connectorService } from '@/services/connectorService';
+import { aiAgentService, defaultAISettings } from '@/services/aiAgentService';
+import { useDeviceStore } from '@/stores/deviceStore';
+import { MobileSyncModal } from '@/components/modals/MobileSyncModal';
+import type { CalendarConnector, AISettings } from '@/types';
 
-type SettingsTab = 'general' | 'notifications' | 'appearance' | 'shortcuts' | 'categories' | 'data';
+type SettingsTab =
+  | 'general'
+  | 'connectors'
+  | 'ai-agent'
+  | 'sync'
+  | 'notifications'
+  | 'appearance'
+  | 'shortcuts'
+  | 'categories'
+  | 'data';
 type ThemeMode = 'light' | 'dark' | 'system';
 
 async function syncAutostart(enabled: boolean) {
@@ -228,8 +242,25 @@ export function SettingsPage() {
     applyAppearance(settings.colorMode, (settings.theme as ThemeColor) || 'midnight');
   }, [ready, settings.colorMode, settings.theme]);
 
+  const { currentDevice, initDevice } = useDeviceStore();
+  const [connectors, setConnectors] = useState<CalendarConnector[]>([]);
+  const [aiConfig, setAiConfig] = useState<AISettings>(defaultAISettings);
+  const [mobileSyncOpen, setMobileSyncOpen] = useState(false);
+  const [icalInput, setIcalInput] = useState('');
+  const [googleEmailInput, setGoogleEmailInput] = useState('');
+  const [zoomEmailInput, setZoomEmailInput] = useState('');
+
+  useEffect(() => {
+    initDevice();
+    connectorService.getConnectors().then(setConnectors);
+    aiAgentService.getSettings().then(setAiConfig);
+  }, [initDevice]);
+
   const tabs: { id: SettingsTab; icon: string; label: string }[] = [
     { id: 'general', icon: 'tune', label: 'General' },
+    { id: 'connectors', icon: 'link', label: 'Connectors' },
+    { id: 'ai-agent', icon: 'smart_toy', label: 'AI Agent' },
+    { id: 'sync', icon: 'sync', label: 'Mobile Sync' },
     { id: 'notifications', icon: 'notifications_active', label: 'Notifications' },
     { id: 'appearance', icon: 'palette', label: 'Appearance' },
     { id: 'shortcuts', icon: 'keyboard', label: 'Shortcuts' },
@@ -459,7 +490,348 @@ export function SettingsPage() {
                   </label>
                 </div>
               </section>
+
+              <section className="bg-surface rounded-2xl border border-outline-variant/30 p-[28px] flex flex-col gap-[28px] shadow-sm">
+                <div>
+                  <h3 className="text-[18px] font-bold text-on-surface flex items-center gap-[18px] mb-[8px]">
+                    <span className="material-symbols-outlined text-primary">devices</span> Device Identity & Network ID
+                  </h3>
+                  <p className="text-[14px] text-on-surface-variant">
+                    Identifies this device for peer-to-peer collaboration, Lock-in sessions, and local mobile syncing with zero cloud accounts.
+                  </p>
+                </div>
+                <div className="p-[16px] rounded-xl bg-surface-container-low border border-outline-variant/20 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-[16px]">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[14px] font-semibold text-on-surface">{currentDevice.name}</span>
+                      <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">
+                        Active Local ID
+                      </span>
+                    </div>
+                    <p className="text-[12px] font-mono text-on-surface-variant mt-1">ID: {currentDevice.id}</p>
+                  </div>
+                  <button
+                    onClick={() => {
+                      navigator.clipboard.writeText(currentDevice.id);
+                      toast.success('Device ID copied to clipboard');
+                    }}
+                    className="px-[16px] py-[8px] bg-primary/10 hover:bg-primary/20 text-primary text-[12px] font-semibold rounded-lg transition-colors"
+                  >
+                    Copy Device ID
+                  </button>
+                </div>
+              </section>
             </>
+          )}
+
+          {/* Connectors Tab */}
+          {activeTab === 'connectors' && (
+            <section className="bg-surface rounded-2xl border border-outline-variant/30 p-[28px] flex flex-col gap-[28px] shadow-sm">
+              <div>
+                <h3 className="text-[18px] font-bold text-on-surface flex items-center gap-[18px] mb-[8px]">
+                  <span className="material-symbols-outlined text-primary">link</span> External Account Connectors
+                </h3>
+                <p className="text-[14px] text-on-surface-variant">
+                  Link your Google Calendar and Zoom accounts to import meetings directly into your local database.
+                </p>
+              </div>
+
+              {/* Google Calendar Card */}
+              <div className="p-[20px] rounded-xl bg-surface-container-low border border-outline-variant/20 space-y-4">
+                <div className="flex items-center justify-between flex-wrap gap-2">
+                  <div className="flex items-center gap-3">
+                    <span className="text-2xl">📅</span>
+                    <div>
+                      <h4 className="text-[14px] font-semibold text-on-surface">Google Calendar</h4>
+                      <p className="text-[12px] text-on-surface-variant">
+                        Sync meetings and events into DayOS. Paste your private iCal (.ics) feed URL or event text.
+                      </p>
+                    </div>
+                  </div>
+                  {connectors.some((c) => c.provider === 'google_calendar') && (
+                    <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">
+                      Connected
+                    </span>
+                  )}
+                </div>
+
+                <div className="space-y-3 pt-2">
+                  <input
+                    type="text"
+                    placeholder="Account label or email (e.g. work@gmail.com)"
+                    value={googleEmailInput}
+                    onChange={(e) => setGoogleEmailInput(e.target.value)}
+                    className="w-full bg-surface-container border border-outline-variant/30 rounded-lg px-[12px] py-[8px] text-[13px] text-on-surface focus:outline-none focus:border-primary"
+                  />
+                  <textarea
+                    rows={3}
+                    placeholder="Paste Google Calendar private iCal (.ics) text or feed URL"
+                    value={icalInput}
+                    onChange={(e) => setIcalInput(e.target.value)}
+                    className="w-full bg-surface-container border border-outline-variant/30 rounded-lg px-[12px] py-[8px] text-[12px] font-mono text-on-surface focus:outline-none focus:border-primary"
+                  />
+                  <div className="flex justify-end gap-2">
+                    <button
+                      onClick={async () => {
+                        if (!googleEmailInput.trim() && !icalInput.trim()) {
+                          toast.error('Please enter an account email or iCal content');
+                          return;
+                        }
+                        const conn = await connectorService.addGoogleCalendarConnector(
+                          googleEmailInput.trim() || 'Google Account',
+                          icalInput.trim()
+                        );
+                        if (icalInput.trim().includes('BEGIN:VCALENDAR') || icalInput.trim().includes('BEGIN:VEVENT')) {
+                          await connectorService.syncICalFeed(conn.id, icalInput);
+                        }
+                        setConnectors(await connectorService.getConnectors());
+                        setIcalInput('');
+                        setGoogleEmailInput('');
+                      }}
+                      className="px-[16px] py-[8px] bg-primary text-on-primary text-[12px] font-semibold rounded-lg hover:bg-primary/90 transition-colors"
+                    >
+                      Connect & Sync
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Zoom Card */}
+              <div className="p-[20px] rounded-xl bg-surface-container-low border border-outline-variant/20 space-y-4">
+                <div className="flex items-center justify-between flex-wrap gap-2">
+                  <div className="flex items-center gap-3">
+                    <span className="text-2xl">📹</span>
+                    <div>
+                      <h4 className="text-[14px] font-semibold text-on-surface">Zoom</h4>
+                      <p className="text-[12px] text-on-surface-variant">
+                        Connect Zoom to create instant meetings and launch join links from DayOS timetable.
+                      </p>
+                    </div>
+                  </div>
+                  {connectors.some((c) => c.provider === 'zoom') && (
+                    <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">
+                      Connected
+                    </span>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-3 pt-2">
+                  <input
+                    type="text"
+                    placeholder="Zoom Account Email or Personal Meeting ID"
+                    value={zoomEmailInput}
+                    onChange={(e) => setZoomEmailInput(e.target.value)}
+                    className="flex-1 bg-surface-container border border-outline-variant/30 rounded-lg px-[12px] py-[8px] text-[13px] text-on-surface focus:outline-none focus:border-primary"
+                  />
+                  <button
+                    onClick={async () => {
+                      await connectorService.addZoomConnector(zoomEmailInput.trim() || 'Zoom Account');
+                      setConnectors(await connectorService.getConnectors());
+                      setZoomEmailInput('');
+                    }}
+                    className="px-[16px] py-[8px] bg-primary text-on-primary text-[12px] font-semibold rounded-lg hover:bg-primary/90 transition-colors shrink-0"
+                  >
+                    Connect Zoom
+                  </button>
+                </div>
+              </div>
+
+              {/* Active Connectors List */}
+              {connectors.length > 0 && (
+                <div className="space-y-3 pt-2">
+                  <h4 className="text-[13px] font-bold text-on-surface">Active Connectors:</h4>
+                  <div className="space-y-2">
+                    {connectors.map((c) => (
+                      <div
+                        key={c.id}
+                        className="flex items-center justify-between p-[12px] rounded-lg bg-surface border border-outline-variant/20 text-xs"
+                      >
+                        <div>
+                          <span className="font-semibold text-on-surface uppercase tracking-wider text-[11px]">
+                            {c.provider.replace('_', ' ')}
+                          </span>
+                          <span className="text-on-surface-variant ml-2">({c.account_email})</span>
+                        </div>
+                        <button
+                          onClick={async () => {
+                            await connectorService.removeConnector(c.id);
+                            setConnectors(await connectorService.getConnectors());
+                          }}
+                          className="text-error hover:underline text-[11px] font-medium"
+                        >
+                          Disconnect
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </section>
+          )}
+
+          {/* AI Agent Tab */}
+          {activeTab === 'ai-agent' && (
+            <section className="bg-surface rounded-2xl border border-outline-variant/30 p-[28px] flex flex-col gap-[28px] shadow-sm">
+              <div>
+                <h3 className="text-[18px] font-bold text-on-surface flex items-center gap-[18px] mb-[8px]">
+                  <span className="material-symbols-outlined text-primary">smart_toy</span> DayOS AI Assistant
+                </h3>
+                <p className="text-[14px] text-on-surface-variant">
+                  Configure your local or online LLM model, speech recognition, and voice response parameters.
+                </p>
+              </div>
+
+              <div className="flex flex-col gap-[16px]">
+                {/* Provider Picker */}
+                <div>
+                  <label className="text-[12px] font-semibold uppercase tracking-wider text-on-surface-variant block mb-2">
+                    Model Provider
+                  </label>
+                  <select
+                    value={aiConfig.provider}
+                    onChange={(e) =>
+                      setAiConfig({
+                        ...aiConfig,
+                        provider: e.target.value as any,
+                        endpoint_url:
+                          e.target.value === 'ollama' ? 'http://localhost:11434' : aiConfig.endpoint_url,
+                      })
+                    }
+                    className="w-full bg-surface-container-low border border-outline-variant/30 rounded-lg px-[12px] py-[10px] text-[14px] text-on-surface focus:outline-none focus:border-primary"
+                  >
+                    <option value="ollama">Ollama (100% Local Offline - Recommended)</option>
+                    <option value="openai">OpenAI (GPT-4o / GPT-4o-mini)</option>
+                    <option value="gemini">Google Gemini API</option>
+                    <option value="anthropic">Anthropic Claude</option>
+                    <option value="openrouter">OpenRouter (Multi-model)</option>
+                  </select>
+                </div>
+
+                {/* Model Name */}
+                <div>
+                  <label className="text-[12px] font-semibold uppercase tracking-wider text-on-surface-variant block mb-2">
+                    Model Name
+                  </label>
+                  <input
+                    type="text"
+                    value={aiConfig.model_name}
+                    onChange={(e) => setAiConfig({ ...aiConfig, model_name: e.target.value })}
+                    placeholder="e.g. llama3.2, mistral, gpt-4o-mini"
+                    className="w-full bg-surface-container-low border border-outline-variant/30 rounded-lg px-[12px] py-[10px] text-[14px] text-on-surface focus:outline-none focus:border-primary"
+                  />
+                  <p className="text-[11px] text-on-surface-variant/70 mt-1">
+                    For local Ollama, ensure you have run <code>ollama run {aiConfig.model_name || 'llama3.2'}</code>.
+                  </p>
+                </div>
+
+                {/* Endpoint URL (For Ollama / Local) */}
+                {aiConfig.provider === 'ollama' && (
+                  <div>
+                    <label className="text-[12px] font-semibold uppercase tracking-wider text-on-surface-variant block mb-2">
+                      Local Endpoint URL
+                    </label>
+                    <input
+                      type="text"
+                      value={aiConfig.endpoint_url}
+                      onChange={(e) => setAiConfig({ ...aiConfig, endpoint_url: e.target.value })}
+                      className="w-full bg-surface-container-low border border-outline-variant/30 rounded-lg px-[12px] py-[10px] text-[14px] text-on-surface font-mono text-xs focus:outline-none focus:border-primary"
+                    />
+                  </div>
+                )}
+
+                {/* API Key (For Cloud) */}
+                {aiConfig.provider !== 'ollama' && (
+                  <div>
+                    <label className="text-[12px] font-semibold uppercase tracking-wider text-on-surface-variant block mb-2">
+                      API Key
+                    </label>
+                    <input
+                      type="password"
+                      value={aiConfig.api_key}
+                      onChange={(e) => setAiConfig({ ...aiConfig, api_key: e.target.value })}
+                      placeholder="sk-..."
+                      className="w-full bg-surface-container-low border border-outline-variant/30 rounded-lg px-[12px] py-[10px] text-[14px] text-on-surface font-mono text-xs focus:outline-none focus:border-primary"
+                    />
+                  </div>
+                )}
+
+                {/* Voice Features Toggles */}
+                <div className="pt-2 border-t border-outline-variant/20 space-y-3">
+                  <h4 className="text-[13px] font-bold text-on-surface">Voice & Speech Capabilities</h4>
+                  <label className="flex items-center justify-between p-[14px] rounded-xl bg-surface-container-low cursor-pointer">
+                    <div>
+                      <p className="text-[13px] font-semibold text-on-surface">Speech Recognition (Voice In)</p>
+                      <p className="text-[11px] text-on-surface-variant">Talk directly to DayOS using your microphone</p>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={aiConfig.speech_input_enabled}
+                      onChange={(e) =>
+                        setAiConfig({ ...aiConfig, speech_input_enabled: e.target.checked })
+                      }
+                      className="w-5 h-5 accent-primary cursor-pointer"
+                    />
+                  </label>
+
+                  <label className="flex items-center justify-between p-[14px] rounded-xl bg-surface-container-low cursor-pointer">
+                    <div>
+                      <p className="text-[13px] font-semibold text-on-surface">Voice Output (Text-to-Speech)</p>
+                      <p className="text-[11px] text-on-surface-variant">Speak AI responses back using natural OS speech synthesis</p>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={aiConfig.speech_output_enabled}
+                      onChange={(e) =>
+                        setAiConfig({ ...aiConfig, speech_output_enabled: e.target.checked })
+                      }
+                      className="w-5 h-5 accent-primary cursor-pointer"
+                    />
+                  </label>
+                </div>
+
+                <div className="flex justify-end pt-2">
+                  <button
+                    onClick={async () => {
+                      await aiAgentService.saveSettings(aiConfig);
+                      toast.success('AI Agent configuration saved');
+                    }}
+                    className="px-[20px] py-[10px] bg-primary text-on-primary text-[13px] font-semibold rounded-lg hover:bg-primary/90 transition-colors shadow-sm"
+                  >
+                    Save AI Settings
+                  </button>
+                </div>
+              </div>
+            </section>
+          )}
+
+          {/* Sync Tab */}
+          {activeTab === 'sync' && (
+            <section className="bg-surface rounded-2xl border border-outline-variant/30 p-[28px] flex flex-col gap-[28px] shadow-sm">
+              <div>
+                <h3 className="text-[18px] font-bold text-on-surface flex items-center gap-[18px] mb-[8px]">
+                  <span className="material-symbols-outlined text-primary">sync</span> Mobile Companion & Local Sync
+                </h3>
+                <p className="text-[14px] text-on-surface-variant">
+                  Keep your DayOS database synchronized with your Android mobile device over your local Wi-Fi without any cloud intermediate.
+                </p>
+              </div>
+
+              <div className="p-[20px] rounded-xl bg-surface-container-low border border-outline-variant/20 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-[16px]">
+                <div>
+                  <h4 className="text-[14px] font-semibold text-on-surface">Wi-Fi QR Pairing</h4>
+                  <p className="text-[12px] text-on-surface-variant mt-1">
+                    Display a 6-digit PIN and QR code to pair your phone in seconds.
+                  </p>
+                </div>
+                <button
+                  onClick={() => setMobileSyncOpen(true)}
+                  className="px-[20px] py-[10px] bg-primary text-on-primary text-[12px] font-semibold rounded-lg hover:bg-primary/90 transition-colors shadow-sm flex items-center gap-2"
+                >
+                  <span className="material-symbols-outlined text-[16px]">qr_code_scanner</span>
+                  Pair Mobile Phone
+                </button>
+              </div>
+            </section>
           )}
 
           {/* Notifications Tab */}
@@ -824,6 +1196,7 @@ export function SettingsPage() {
           )}
         </div>
       </div>
+      <MobileSyncModal isOpen={mobileSyncOpen} onClose={() => setMobileSyncOpen(false)} />
     </div>
   );
 }

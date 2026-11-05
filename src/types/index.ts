@@ -21,6 +21,8 @@ export interface Task {
   created_at: string;
   updated_at: string;
   completed_at: string | null;
+  assignee_device_id?: string | null;
+  assigned_by_device_id?: string | null;
   isOverdue?: boolean;
 }
 
@@ -39,6 +41,8 @@ export interface CreateTaskRequest {
   recurrence_rule?: string;
   reminder_enabled?: boolean;
   reminder_minutes?: number;
+  assignee_device_id?: string;
+  assigned_by_device_id?: string;
 }
 
 export interface UpdateTaskRequest {
@@ -57,6 +61,8 @@ export interface UpdateTaskRequest {
   recurrence_rule?: string;
   reminder_enabled?: boolean;
   reminder_minutes?: number;
+  assignee_device_id?: string;
+  assigned_by_device_id?: string;
 }
 
 // Goal types
@@ -74,6 +80,8 @@ export interface Goal {
   color: string;
   category_id: string | null;
   recurrence_rule: string | null;
+  owner_device_id?: string | null;
+  collaborator_device_ids?: string[] | string | null;
   created_at: string;
   updated_at: string;
 }
@@ -87,6 +95,8 @@ export interface CreateGoalRequest {
   color?: string;
   category_id?: string;
   recurrence_rule?: string;
+  owner_device_id?: string;
+  collaborator_device_ids?: string[];
 }
 
 export interface UpdateGoalRequest {
@@ -100,6 +110,8 @@ export interface UpdateGoalRequest {
   color?: string;
   category_id?: string;
   recurrence_rule?: string;
+  owner_device_id?: string;
+  collaborator_device_ids?: string[];
 }
 
 // Project types
@@ -113,6 +125,8 @@ export interface Project {
   color: string;
   status: ProjectStatus;
   category_id: string | null;
+  owner_device_id?: string | null;
+  collaborator_device_ids?: string[] | string | null;
   created_at: string;
   updated_at: string;
 }
@@ -123,6 +137,8 @@ export interface CreateProjectRequest {
   description?: string;
   color?: string;
   category_id?: string;
+  owner_device_id?: string;
+  collaborator_device_ids?: string[];
 }
 
 export interface UpdateProjectRequest {
@@ -133,6 +149,8 @@ export interface UpdateProjectRequest {
   color?: string;
   status?: ProjectStatus;
   category_id?: string;
+  owner_device_id?: string;
+  collaborator_device_ids?: string[];
 }
 
 // Category types
@@ -182,6 +200,8 @@ export interface Meeting {
   reminder_offsets: number[] | null;
   is_recurring: boolean;
   recurrence_rule: string | null;
+  external_provider?: 'google_calendar' | 'zoom' | 'ical' | 'manual' | null;
+  external_id?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -198,6 +218,8 @@ export interface CreateMeetingRequest {
   reminder_offsets?: number[];
   is_recurring?: boolean;
   recurrence_rule?: string;
+  external_provider?: 'google_calendar' | 'zoom' | 'ical' | 'manual';
+  external_id?: string;
 }
 
 export interface UpdateMeetingRequest {
@@ -213,6 +235,8 @@ export interface UpdateMeetingRequest {
   reminder_offsets?: number[];
   is_recurring?: boolean;
   recurrence_rule?: string;
+  external_provider?: 'google_calendar' | 'zoom' | 'ical' | 'manual';
+  external_id?: string;
 }
 
 // Settings types
@@ -252,7 +276,7 @@ export interface TaskStats {
 }
 
 // Navigation
-export type NavItem = 'today' | 'tasks' | 'goals' | 'projects' | 'meetings' | 'timetable' | 'pomodoro' | 'routines' | 'notes' | 'settings' | 'help';
+export type NavItem = 'today' | 'tasks' | 'goals' | 'projects' | 'meetings' | 'timetable' | 'pomodoro' | 'routines' | 'notes' | 'collaborate' | 'settings' | 'help';
 
 // Routines
 export interface Routine {
@@ -419,3 +443,91 @@ export type ShortcutAction =
   | 'openPomodoro';
 
 export type ShortcutBindings = Record<ShortcutAction, string>;
+
+// Device & Identity types
+export interface Device {
+  id: string;
+  name: string;
+  ip_address?: string | null;
+  last_seen: string;
+  is_trusted: boolean;
+  is_current?: boolean;
+  color?: string;
+}
+
+// Lock-in Session types
+export type LockinPhase = 'focus' | 'short_break' | 'long_break';
+
+export interface LockinSession {
+  id: string;
+  title: string;
+  host_device_id: string;
+  host_device_name: string;
+  pin_code: string;
+  current_phase: LockinPhase;
+  duration_minutes: number;
+  remaining_seconds: number;
+  is_running: boolean;
+  participant_count: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface LockinParticipant {
+  device_id: string;
+  device_name: string;
+  is_host: boolean;
+  status: 'focusing' | 'resting' | 'idle';
+  joined_at: string;
+}
+
+// External Calendar & Video Connectors
+export type CalendarConnectorProvider = 'google_calendar' | 'zoom' | 'ical';
+
+export interface CalendarConnector {
+  id: string;
+  provider: CalendarConnectorProvider;
+  account_email?: string | null;
+  feed_url?: string | null;
+  sync_enabled: boolean;
+  last_synced_at?: string | null;
+  created_at: string;
+}
+
+// AI Agent types
+export type AIModelProvider = 'ollama' | 'openai' | 'gemini' | 'anthropic' | 'openrouter';
+
+export interface AISettings {
+  provider: AIModelProvider;
+  model_name: string;
+  endpoint_url: string;
+  api_key: string;
+  speech_input_enabled: boolean;
+  speech_output_enabled: boolean;
+  voice_pitch: number;
+  voice_rate: number;
+}
+
+export interface AIMessage {
+  id: string;
+  role: 'user' | 'assistant' | 'system';
+  content: string;
+  created_at: string;
+  tool_calls?: Array<{
+    name: string;
+    args: Record<string, unknown>;
+    result?: unknown;
+  }>;
+}
+
+// Mobile Sync types
+export type SyncStatus = 'idle' | 'pairing' | 'syncing' | 'synced' | 'error';
+
+export interface MobileSyncState {
+  pairing_code: string;
+  local_ip: string;
+  port: number;
+  status: SyncStatus;
+  last_sync_timestamp: string | null;
+  paired_devices: Device[];
+}

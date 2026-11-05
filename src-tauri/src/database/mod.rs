@@ -195,6 +195,50 @@ fn create_tables(conn: &Connection) -> Result<()> {
             updated_at TEXT NOT NULL DEFAULT (datetime('now')),
             FOREIGN KEY (folder_id) REFERENCES note_folders(id) ON DELETE SET NULL
         );
+
+        CREATE TABLE IF NOT EXISTS devices (
+            id TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            ip_address TEXT,
+            last_seen TEXT NOT NULL DEFAULT (datetime('now')),
+            is_trusted INTEGER NOT NULL DEFAULT 0,
+            created_at TEXT NOT NULL DEFAULT (datetime('now'))
+        );
+
+        CREATE TABLE IF NOT EXISTS lockin_sessions (
+            id TEXT PRIMARY KEY,
+            title TEXT NOT NULL,
+            host_device_id TEXT NOT NULL,
+            host_device_name TEXT NOT NULL,
+            pin_code TEXT NOT NULL,
+            current_phase TEXT NOT NULL DEFAULT 'focus' CHECK(current_phase IN ('focus', 'short_break', 'long_break')),
+            duration_minutes INTEGER NOT NULL DEFAULT 25,
+            remaining_seconds INTEGER NOT NULL DEFAULT 1500,
+            is_running INTEGER NOT NULL DEFAULT 0,
+            participant_count INTEGER NOT NULL DEFAULT 1,
+            created_at TEXT NOT NULL DEFAULT (datetime('now')),
+            updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+        );
+
+        CREATE TABLE IF NOT EXISTS calendar_connectors (
+            id TEXT PRIMARY KEY,
+            provider TEXT NOT NULL CHECK(provider IN ('google_calendar', 'zoom', 'ical')),
+            account_email TEXT,
+            access_token TEXT,
+            refresh_token TEXT,
+            token_expires_at TEXT,
+            feed_url TEXT,
+            sync_enabled INTEGER NOT NULL DEFAULT 1,
+            last_synced_at TEXT,
+            created_at TEXT NOT NULL DEFAULT (datetime('now'))
+        );
+
+        CREATE TABLE IF NOT EXISTS ai_messages (
+            id TEXT PRIMARY KEY,
+            role TEXT NOT NULL CHECK(role IN ('user', 'assistant', 'system')),
+            content TEXT NOT NULL,
+            created_at TEXT NOT NULL DEFAULT (datetime('now'))
+        );
     ")?;
 
     // Guarded migration: add goals.recurrence_rule if missing
@@ -247,6 +291,82 @@ fn create_tables(conn: &Connection) -> Result<()> {
             "ALTER TABLE meetings ADD COLUMN reminder_offsets TEXT",
             [],
         )?;
+    }
+
+    // Guarded migration: tasks collaboration fields
+    let has_col: i64 = conn.query_row(
+        "SELECT COUNT(*) FROM pragma_table_info('tasks') WHERE name = 'assignee_device_id'",
+        [],
+        |row| row.get(0),
+    )?;
+    if has_col == 0 {
+        conn.execute("ALTER TABLE tasks ADD COLUMN assignee_device_id TEXT", [])?;
+    }
+
+    let has_col: i64 = conn.query_row(
+        "SELECT COUNT(*) FROM pragma_table_info('tasks') WHERE name = 'assigned_by_device_id'",
+        [],
+        |row| row.get(0),
+    )?;
+    if has_col == 0 {
+        conn.execute("ALTER TABLE tasks ADD COLUMN assigned_by_device_id TEXT", [])?;
+    }
+
+    // Guarded migration: projects collaboration fields
+    let has_col: i64 = conn.query_row(
+        "SELECT COUNT(*) FROM pragma_table_info('projects') WHERE name = 'owner_device_id'",
+        [],
+        |row| row.get(0),
+    )?;
+    if has_col == 0 {
+        conn.execute("ALTER TABLE projects ADD COLUMN owner_device_id TEXT", [])?;
+    }
+
+    let has_col: i64 = conn.query_row(
+        "SELECT COUNT(*) FROM pragma_table_info('projects') WHERE name = 'collaborator_device_ids'",
+        [],
+        |row| row.get(0),
+    )?;
+    if has_col == 0 {
+        conn.execute("ALTER TABLE projects ADD COLUMN collaborator_device_ids TEXT", [])?;
+    }
+
+    // Guarded migration: goals collaboration fields
+    let has_col: i64 = conn.query_row(
+        "SELECT COUNT(*) FROM pragma_table_info('goals') WHERE name = 'owner_device_id'",
+        [],
+        |row| row.get(0),
+    )?;
+    if has_col == 0 {
+        conn.execute("ALTER TABLE goals ADD COLUMN owner_device_id TEXT", [])?;
+    }
+
+    let has_col: i64 = conn.query_row(
+        "SELECT COUNT(*) FROM pragma_table_info('goals') WHERE name = 'collaborator_device_ids'",
+        [],
+        |row| row.get(0),
+    )?;
+    if has_col == 0 {
+        conn.execute("ALTER TABLE goals ADD COLUMN collaborator_device_ids TEXT", [])?;
+    }
+
+    // Guarded migration: meetings connector fields
+    let has_col: i64 = conn.query_row(
+        "SELECT COUNT(*) FROM pragma_table_info('meetings') WHERE name = 'external_provider'",
+        [],
+        |row| row.get(0),
+    )?;
+    if has_col == 0 {
+        conn.execute("ALTER TABLE meetings ADD COLUMN external_provider TEXT", [])?;
+    }
+
+    let has_col: i64 = conn.query_row(
+        "SELECT COUNT(*) FROM pragma_table_info('meetings') WHERE name = 'external_id'",
+        [],
+        |row| row.get(0),
+    )?;
+    if has_col == 0 {
+        conn.execute("ALTER TABLE meetings ADD COLUMN external_id TEXT", [])?;
     }
 
     Ok(())

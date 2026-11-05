@@ -4,9 +4,10 @@ import { getCurrentWindow } from '@tauri-apps/api/window';
 
 interface TopBarProps {
   onOpenHelp?: () => void;
+  onOpenAI?: () => void;
 }
 
-export function TopBar({ onOpenHelp }: TopBarProps) {
+export function TopBar({ onOpenHelp, onOpenAI }: TopBarProps) {
   const { setCommandPaletteOpen, currentPage, setCurrentPage } = useUIStore();
   const [showNotifications, setShowNotifications] = useState(false);
   const [isMaximized, setIsMaximized] = useState(false);
@@ -113,6 +114,16 @@ export function TopBar({ onOpenHelp }: TopBarProps) {
 
       {/* Right: Actions, Help & Window Controls (shrink-0 so empty space between search and buttons is draggable) */}
       <div className="flex items-center gap-[12px] shrink-0 z-10 ml-auto">
+        {/* AI Assistant Button */}
+        <button
+          type="button"
+          onClick={onOpenAI}
+          className="w-8 h-8 flex items-center justify-center text-primary transition-colors rounded-full hover:bg-primary/10 relative cursor-pointer"
+          title="DayOS AI Assistant (Voice & Chat)"
+        >
+          <span className="text-[16px]">✨</span>
+        </button>
+
         {/* Notifications Button */}
         <div className="relative">
           <button

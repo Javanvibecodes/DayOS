@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { usePomodoroStore, refreshPomodoroConfig } from '@/stores/pomodoroStore';
+import { useUIStore } from '@/stores/uiStore';
 import { toast } from '@/stores/toastStore';
 
 function formatTime(totalSeconds: number): string {
@@ -129,6 +130,23 @@ export function PomodoroPage() {
         <p className="text-[14px] text-on-surface-variant">
           Focus sessions with breaks in between — e.g. a 4-hour session of 25-minute focus blocks and 5-minute breaks.
         </p>
+      </div>
+
+      {/* Lock-in Collaboration Banner */}
+      <div className="bg-primary/10 border border-primary/20 rounded-xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <span className="text-xl">🤝</span>
+          <div>
+            <h4 className="text-sm font-semibold text-on-surface">Want to focus together with peers?</h4>
+            <p className="text-xs text-on-surface-variant">Host or join a synchronized Lock-in session with other devices over your local network.</p>
+          </div>
+        </div>
+        <button
+          onClick={() => useUIStore.getState().setCurrentPage('collaborate')}
+          className="px-4 py-2 bg-primary text-on-primary text-xs font-semibold rounded-lg hover:bg-primary/90 transition-colors whitespace-nowrap shrink-0 shadow-sm"
+        >
+          Open Lock-in Room
+        </button>
       </div>
 
       {/* Session setup */}

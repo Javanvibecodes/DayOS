@@ -25,6 +25,9 @@ import { PomodoroPage } from '@/pages/PomodoroPage';
 import { RoutinesPage } from '@/pages/RoutinesPage';
 import { NotesPage } from '@/pages/NotesPage';
 import { HelpPage } from '@/pages/HelpPage';
+import { CollaboratePage } from '@/pages/CollaboratePage';
+import { AIAssistantDrawer } from '@/components/ai/AIAssistantDrawer';
+import { useDeviceStore } from '@/stores/deviceStore';
 import {
   SHORTCUT_ACTIONS,
   SHORTCUT_LABELS,
@@ -59,6 +62,7 @@ function App() {
   const [meetingModalOpen, setMeetingModalOpen] = useState(false);
   const [editingMeeting, setEditingMeeting] = useState<Meeting | null>(null);
   const [helpModalOpen, setHelpModalOpen] = useState(false);
+  const [aiDrawerOpen, setAiDrawerOpen] = useState(false);
   const [alarmRinging, setAlarmRinging] = useState(isAlarmRinging());
 
   useEffect(() => {
@@ -66,6 +70,7 @@ function App() {
   }, []);
 
   useEffect(() => {
+    void useDeviceStore.getState().initDevice();
     loadTasks();
     loadGoals();
     loadProjects();
@@ -267,6 +272,8 @@ function App() {
         return <RoutinesPage />;
       case 'notes':
         return <NotesPage />;
+      case 'collaborate':
+        return <CollaboratePage />;
       case 'settings':
         return <SettingsPage />;
       case 'help':
@@ -287,6 +294,7 @@ function App() {
       {/* App Header / TopBar - extends full width across the top */}
       <TopBar
         onOpenHelp={() => setHelpModalOpen(true)}
+        onOpenAI={() => setAiDrawerOpen(true)}
       />
 
       {/* Main layout underneath the full-width header */}
@@ -393,6 +401,22 @@ function App() {
           </div>
         </div>
       )}
+
+      {/* Floating AI Assistant Trigger Button */}
+      <button
+        onClick={() => setAiDrawerOpen(true)}
+        className="fixed bottom-6 right-6 z-40 flex items-center gap-2 px-3.5 py-2.5 rounded-full bg-primary text-primary-foreground font-semibold text-xs shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-200 cursor-pointer border border-primary/30"
+        title="Open DayOS AI Assistant"
+      >
+        <span className="text-sm">✨</span>
+        <span className="hidden sm:inline">Ask AI</span>
+      </button>
+
+      {/* Global AI Assistant Drawer */}
+      <AIAssistantDrawer
+        isOpen={aiDrawerOpen}
+        onClose={() => setAiDrawerOpen(false)}
+      />
     </div>
   );
 }
