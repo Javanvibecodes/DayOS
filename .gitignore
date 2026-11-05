@@ -23,6 +23,9 @@ src-tauri/gen/schemas
 # OAuth client credential downloads must never be committed
 client_secret_*.json
 *.apps.googleusercontent.com.json
+credentials.local.json
+*.local.json
+.env*
 
 # Editor directories and files
 .vscode/*

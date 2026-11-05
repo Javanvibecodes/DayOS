@@ -1,3 +1,4 @@
+use std::path::PathBuf;
 use std::time::Duration;
 
 use crate::integrations::types::{
@@ -35,8 +36,9 @@ const GOOGLE_FEATURE_SCOPES: [&str; 2] = [GOOGLE_CALENDAR_SCOPE, GOOGLE_MEET_SCO
 
 /// Resolved OAuth application configuration for a provider.
 ///
-/// Client identifiers and secrets come from the process environment. They are
-/// never persisted in SQLite, DayOS settings, logs, or the renderer.
+/// Client identifiers and secrets come from environment variables, compile-time
+/// constants, or local untracked credentials files (credentials.local.json).
+/// They are never persisted in SQLite, DayOS settings, logs, or the renderer.
 #[derive(Debug, Clone)]
 pub struct OAuthConfig {
     pub provider: &'static str,
@@ -74,12 +76,25 @@ pub fn provider_key_for(connector: &str) -> ApiResult<&'static str> {
 }
 
 fn google_config() -> ApiResult<OAuthConfig> {
-    let client_id = require_env(
+    let client_id = resolve_credential(
         "DAYOS_GOOGLE_CLIENT_ID",
-        "Google Calendar and Google Meet need a Google OAuth client. \
-         Set DAYOS_GOOGLE_CLIENT_ID (and optionally DAYOS_GOOGLE_CLIENT_SECRET) \
-         before starting DayOS.",
-    )?;
+        option_env!("DAYOS_GOOGLE_CLIENT_ID"),
+        "google",
+        "client_id",
+    )
+    .ok_or_else(|| {
+        ApiError::not_configured(
+            "Google Calendar and Google Meet require a configured Google OAuth Client ID. \
+             Please set DAYOS_GOOGLE_CLIENT_ID or provide credentials.local.json.",
+        )
+    })?;
+
+    let client_secret = resolve_credential(
+        "DAYOS_GOOGLE_CLIENT_SECRET",
+        option_env!("DAYOS_GOOGLE_CLIENT_SECRET"),
+        "google",
+        "client_secret",
+    );
 
     let mut scopes: Vec<String> = GOOGLE_IDENTITY_SCOPES
         .iter()
@@ -94,7 +109,7 @@ fn google_config() -> ApiResult<OAuthConfig> {
     Ok(OAuthConfig {
         provider: GOOGLE_PROVIDER_KEY,
         client_id,
-        client_secret: env_non_empty("DAYOS_GOOGLE_CLIENT_SECRET"),
+        client_secret,
         auth_url: GOOGLE_AUTH_URL,
         token_url: GOOGLE_TOKEN_URL,
         revoke_url: GOOGLE_REVOKE_URL,
@@ -108,11 +123,25 @@ fn google_config() -> ApiResult<OAuthConfig> {
 }
 
 fn zoom_config() -> ApiResult<OAuthConfig> {
-    let client_id = require_env(
+    let client_id = resolve_credential(
         "DAYOS_ZOOM_CLIENT_ID",
-        "Zoom needs a Zoom OAuth app. Set DAYOS_ZOOM_CLIENT_ID (and either \
-         enable public-client PKCE or set DAYOS_ZOOM_CLIENT_SECRET).",
-    )?;
+        option_env!("DAYOS_ZOOM_CLIENT_ID"),
+        "zoom",
+        "client_id",
+    )
+    .ok_or_else(|| {
+        ApiError::not_configured(
+            "Zoom integration requires a configured Zoom OAuth Client ID. \
+             Please set DAYOS_ZOOM_CLIENT_ID or provide credentials.local.json.",
+        )
+    })?;
+
+    let client_secret = resolve_credential(
+        "DAYOS_ZOOM_CLIENT_SECRET",
+        option_env!("DAYOS_ZOOM_CLIENT_SECRET"),
+        "zoom",
+        "client_secret",
+    );
 
     let scopes = match env_non_empty("DAYOS_ZOOM_SCOPES") {
         Some(value) => value
@@ -126,17 +155,19 @@ fn zoom_config() -> ApiResult<OAuthConfig> {
             .collect(),
     };
 
+    let redirect_port_num = redirect_port("DAYOS_ZOOM_REDIRECT_PORT")?;
+    // Default to port 8765 to match the Zoom Marketplace redirect URL
+    let port = if redirect_port_num == 0 { 8765 } else { redirect_port_num };
+
     Ok(OAuthConfig {
         provider: ZOOM_PROVIDER_KEY,
         client_id,
-        // A Zoom public client uses PKCE without a secret. A confidential
-        // client can still provide the secret for Basic authentication.
-        client_secret: env_non_empty("DAYOS_ZOOM_CLIENT_SECRET"),
+        client_secret,
         auth_url: ZOOM_AUTH_URL,
         token_url: ZOOM_TOKEN_URL,
         revoke_url: ZOOM_REVOKE_URL,
         scopes,
-        redirect_port: redirect_port("DAYOS_ZOOM_REDIRECT_PORT")?,
+        redirect_port: port,
         redirect_path: zoom_redirect_path()?,
         timeout: oauth_timeout()?,
     })
@@ -149,8 +180,70 @@ fn env_non_empty(name: &str) -> Option<String> {
         .filter(|value| !value.is_empty())
 }
 
-fn require_env(name: &str, message: &str) -> ApiResult<String> {
-    env_non_empty(name).ok_or_else(|| ApiError::not_configured(message))
+/// Resolves an OAuth credential by checking:
+/// 1. Runtime environment variables
+/// 2. Build-time environment variable constants (option_env!)
+/// 3. Local untracked credentials files (credentials.local.json or client_secret_*.json)
+fn resolve_credential(
+    env_name: &str,
+    compile_time: Option<&'static str>,
+    provider: &str,
+    field: &str,
+) -> Option<String> {
+    env_non_empty(env_name)
+        .or_else(|| compile_time.map(|s| s.trim().to_string()).filter(|s| !s.is_empty()))
+        .or_else(|| file_credential(provider, field))
+}
+
+fn file_credential(provider: &str, field: &str) -> Option<String> {
+    let candidate_paths = [
+        PathBuf::from("credentials.local.json"),
+        PathBuf::from("../credentials.local.json"),
+        PathBuf::from("src-tauri/credentials.local.json"),
+    ];
+
+    for path in &candidate_paths {
+        if let Ok(content) = std::fs::read_to_string(path) {
+            if let Ok(val) = serde_json::from_str::<serde_json::Value>(&content) {
+                if let Some(target) = val.get(provider).and_then(|p| p.get(field)).and_then(|v| v.as_str()) {
+                    let s = target.trim();
+                    if !s.is_empty() {
+                        return Some(s.to_string());
+                    }
+                }
+            }
+        }
+    }
+
+    // Also check standard Google client_secret_*.json if searching for Google credentials
+    if provider == "google" {
+        let search_dirs = [PathBuf::from("."), PathBuf::from("..")];
+        for dir in &search_dirs {
+            if let Ok(entries) = std::fs::read_dir(dir) {
+                for entry in entries.flatten() {
+                    let file_name = entry.file_name();
+                    let name = file_name.to_string_lossy();
+                    if (name.starts_with("client_secret_") || name.ends_with(".apps.googleusercontent.com.json"))
+                        && name.ends_with(".json")
+                    {
+                        if let Ok(content) = std::fs::read_to_string(entry.path()) {
+                            if let Ok(val) = serde_json::from_str::<serde_json::Value>(&content) {
+                                let obj = val.get("installed").or_else(|| val.get("web"));
+                                if let Some(target) = obj.and_then(|o| o.get(field)).and_then(|v| v.as_str()) {
+                                    let s = target.trim();
+                                    if !s.is_empty() {
+                                        return Some(s.to_string());
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    None
 }
 
 fn redirect_port(name: &str) -> ApiResult<u16> {
