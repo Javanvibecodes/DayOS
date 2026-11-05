@@ -45,14 +45,14 @@ export function Sidebar() {
           sidebarCollapsed ? 'justify-center px-0' : 'justify-start px-[8px] gap-[18px]',
         )}
       >
-        <div
+        <img
+          src="/favicon-32x32.png"
+          alt="DayOS"
           className={cn(
-            'rounded-xl bg-primary-container flex items-center justify-center text-on-primary-container font-bold shadow-md shrink-0',
-            sidebarCollapsed ? 'w-10 h-10 text-[18px]' : 'w-[72px] h-[72px] text-[36px]',
+            'rounded-xl shrink-0',
+            sidebarCollapsed ? 'w-10 h-10' : 'w-[72px] h-[72px]',
           )}
-        >
-          D
-        </div>
+        />
         {!sidebarCollapsed && (
           <div>
             <h1 className="font-bold text-on-surface text-[30px] leading-tight">DayOS</h1>

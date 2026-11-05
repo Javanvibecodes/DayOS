@@ -1,8 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useUIStore } from '@/stores/uiStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { format } from 'date-fns';
-import { getCurrentWindow } from '@tauri-apps/api/window';
 
 interface TopBarProps {
   onOpenHelp?: () => void;
@@ -12,49 +11,14 @@ export function TopBar({ onOpenHelp }: TopBarProps) {
   const { setCommandPaletteOpen } = useUIStore();
   const displayName = useSettingsStore((s) => s.displayName);
   const [showNotifications, setShowNotifications] = useState(false);
-  const [isMaximized, setIsMaximized] = useState(false);
   const today = new Date();
   const avatarInitial = (displayName || 'U').trim().charAt(0).toUpperCase() || 'U';
 
-  useEffect(() => {
-    const win = getCurrentWindow();
-    const checkMaximized = async () => {
-      const max = await win.isMaximized();
-      setIsMaximized(max);
-    };
-    checkMaximized();
-    
-    const setupListener = async () => {
-      const unlisten = await win.onResized(() => {
-        checkMaximized();
-      });
-      return unlisten;
-    };
-    
-    let unlistenFn: (() => void) | null = null;
-    setupListener().then(fn => { unlistenFn = fn; });
-    return () => { if (unlistenFn) unlistenFn(); };
-  }, []);
-
-  const win = getCurrentWindow();
-  const handleMinimize = () => win.minimize();
-  const handleMaximize = async () => {
-    if (isMaximized) {
-      await win.unmaximize();
-    } else {
-      await win.maximize();
-    }
-    setIsMaximized(!isMaximized);
-  };
-  const handleClose = () => win.close();
-
-  const dragStyle: React.CSSProperties = { WebkitAppRegion: 'drag' } as React.CSSProperties;
   const noDragStyle: React.CSSProperties = { WebkitAppRegion: 'no-drag' } as React.CSSProperties;
 
   return (
     <header
       className="h-16 bg-surface border-b border-outline-variant/20 flex justify-between items-center px-[32px] shrink-0 relative select-none"
-      style={dragStyle}
     >
       {/* Left: Logo + Day & Date */}
       <div className="flex items-center gap-[14px] min-w-0" style={noDragStyle}>
@@ -88,7 +52,7 @@ export function TopBar({ onOpenHelp }: TopBarProps) {
         </div>
       </div>
 
-      {/* Right: Actions, Notifications & Window Controls */}
+      {/* Right: Actions & Notifications */}
       <div className="flex items-center gap-[20px] relative z-10" style={noDragStyle}>
         <div className="flex items-center gap-[12px] border-l border-outline-variant/30 pl-[20px] ml-[8px] relative">
           {/* Notifications Button */}
@@ -132,36 +96,6 @@ export function TopBar({ onOpenHelp }: TopBarProps) {
           >
             {avatarInitial}
           </div>
-        </div>
-
-        {/* Window Controls */}
-        <div className="flex items-center gap-[4px] ml-[12px]" style={noDragStyle}>
-          <button
-            onClick={handleMinimize}
-            className="w-10 h-10 flex items-center justify-center text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-colors rounded-lg"
-            title="Minimize"
-            aria-label="Minimize"
-          >
-            <span className="material-symbols-outlined text-[20px]">minimize</span>
-          </button>
-          <button
-            onClick={handleMaximize}
-            className="w-10 h-10 flex items-center justify-center text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-colors rounded-lg"
-            title={isMaximized ? 'Restore' : 'Maximize'}
-            aria-label={isMaximized ? 'Restore' : 'Maximize'}
-          >
-            <span className="material-symbols-outlined text-[20px]">
-              {isMaximized ? 'fullscreen_exit' : 'fullscreen'}
-            </span>
-          </button>
-          <button
-            onClick={handleClose}
-            className="w-10 h-10 flex items-center justify-center text-on-surface-variant hover:text-error hover:bg-error-container/20 transition-colors rounded-lg"
-            title="Close"
-            aria-label="Close"
-          >
-            <span className="material-symbols-outlined text-[20px]">close</span>
-          </button>
         </div>
       </div>
     </header>
