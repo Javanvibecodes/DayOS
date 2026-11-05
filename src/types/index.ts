@@ -506,6 +506,7 @@ export interface AISettings {
   speech_output_enabled: boolean;
   voice_pitch: number;
   voice_rate: number;
+  tts_voice_id?: string;
 }
 
 export interface AIMessage {

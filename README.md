@@ -42,8 +42,40 @@ Official releases are compiled, signed, and published exclusively by **Javanvibe
 - **Notes** — Multi-folder markdown notes with instantaneous auto-saving and full-text search.
 - **Command Palette (`Ctrl+K`)** — Global keyboard-driven search and quick actions without taking your hands off the keyboard.
 - **Built-in Keyboard Shortcuts** — Intuitive navigation shortcuts (press `?` anywhere to view).
+- **Local Collaboration & Lock-in** — Host or join synchronized Pomodoro sessions with nearby peers over your local network using Device Identifiers (zero cloud accounts).
+- **Google Calendar 2-Way Sync & Video Meetings** — Two-way event synchronization with 1-click **Google Meet** and **Zoom** meeting link generators.
+- **Multimodal Local AI Assistant** — Voice & text productivity agent supporting on-demand local models (**Ollama**) and cloud APIs with **Kokoro & Piper** local neural voices.
 - **Themes & Customization** — Dark, Light, and System appearance modes with four distinct accent palettes.
 - **Windows Integration** — Optional auto-start on Windows boot, minimized startup, and native notifications.
+
+---
+
+## 🤖 Local AI Assistant & Ollama Setup
+
+DayOS includes a local multimodal AI productivity assistant that runs directly on your machine without sending your data to the cloud.
+
+### 1. Install Ollama
+Download and install the official Windows installer from:
+👉 **[https://ollama.com/download](https://ollama.com/download)**
+
+### 2. Download a Recommended Model
+Open Command Prompt or PowerShell and run your preferred model:
+
+| Model | Tag | Download Size | Minimum RAM | Best For | Terminal Command |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| **Llama 3.2 (3B)** *(Recommended)* | `llama3.2` | 2.0 GB | 4 GB | Ultra-fast responses on any modern laptop | `ollama run llama3.2` |
+| **Phi-3.5 Mini** | `phi3.5` | 2.2 GB | 4 GB | High-efficiency planning & task drafting | `ollama run phi3.5` |
+| **Qwen 2.5 (7B)** | `qwen2.5` | 4.7 GB | 8 GB | High accuracy & detailed scheduling | `ollama run qwen2.5` |
+| **Mistral (7B)** | `mistral` | 4.1 GB | 8 GB | Rich reasoning & polite conversational tone | `ollama run mistral` |
+
+### 3. Automatic On-Demand Lifecycle
+* You do **not** need to keep Ollama running in the background. 
+* The first time you click the **✨ Ask AI** button in DayOS, DayOS automatically starts the Ollama server silently in the background.
+* When you exit DayOS, the background Ollama server is automatically terminated.
+* DayOS will also inspect your machine's CPU cores and RAM to provide real-time recommendations for the best model to run smoothly.
+
+### 4. Natural Local Voices (Kokoro & Piper)
+Under **Settings $\rightarrow$ AI Agent**, you can select from ultra-natural offline neural voices (including *Kokoro Heart*, *Kokoro Adam*, *Piper Lessac*, and *Piper Ryan*) with a built-in voice audition preview button.
 
 ---
 

@@ -17,7 +17,7 @@ import {
 import { toast } from '@/stores/toastStore';
 import { THEME_PALETTES, applyAppearance, resolveColorMode, type ThemeColor } from '@/lib/theme';
 import { connectorService } from '@/services/connectorService';
-import { aiAgentService, defaultAISettings } from '@/services/aiAgentService';
+import { aiAgentService, defaultAISettings, LOCAL_NEURAL_VOICES, speechService } from '@/services/aiAgentService';
 import { useDeviceStore } from '@/stores/deviceStore';
 import { MobileSyncModal } from '@/components/modals/MobileSyncModal';
 import type { CalendarConnector, AISettings } from '@/types';
@@ -776,7 +776,7 @@ export function SettingsPage() {
                   <label className="flex items-center justify-between p-[14px] rounded-xl bg-surface-container-low cursor-pointer">
                     <div>
                       <p className="text-[13px] font-semibold text-on-surface">Voice Output (Text-to-Speech)</p>
-                      <p className="text-[11px] text-on-surface-variant">Speak AI responses back using natural OS speech synthesis</p>
+                      <p className="text-[11px] text-on-surface-variant">Speak AI responses back using natural speech models</p>
                     </div>
                     <input
                       type="checkbox"
@@ -787,6 +787,60 @@ export function SettingsPage() {
                       className="w-5 h-5 accent-primary cursor-pointer"
                     />
                   </label>
+
+                  {/* Neural TTS Voice Selector (Kokoro & Piper) */}
+                  <div className="p-[16px] rounded-xl bg-surface-container-low border border-outline-variant/20 space-y-3">
+                    <div className="flex items-center justify-between flex-wrap gap-2">
+                      <div>
+                        <label className="text-[12px] font-semibold uppercase tracking-wider text-on-surface block">
+                          Local Neural Voice (Kokoro & Piper)
+                        </label>
+                        <p className="text-[11px] text-on-surface-variant">
+                          High-fidelity offline voices designed for natural speech rhythm.
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const voiceId = aiConfig.tts_voice_id || 'kokoro-heart';
+                          speechService.previewVoice(voiceId);
+                          toast.info('Playing voice audition sample...');
+                        }}
+                        className="px-3 py-1 rounded-lg text-xs font-semibold bg-primary/10 text-primary hover:bg-primary/20 transition-colors flex items-center gap-1.5"
+                      >
+                        <span>🔊</span>
+                        <span>Preview Voice</span>
+                      </button>
+                    </div>
+
+                    <select
+                      value={aiConfig.tts_voice_id || 'kokoro-heart'}
+                      onChange={(e) => setAiConfig({ ...aiConfig, tts_voice_id: e.target.value })}
+                      className="w-full bg-surface-container border border-outline-variant/30 rounded-lg px-[12px] py-[8px] text-[13px] text-on-surface focus:outline-none focus:border-primary"
+                    >
+                      <optgroup label="Kokoro Neural Voices (Warm & Expressive)">
+                        {LOCAL_NEURAL_VOICES.filter((v) => v.engine === 'kokoro').map((v) => (
+                          <option key={v.id} value={v.id}>
+                            {v.name} ({v.accent}) — {v.description}
+                          </option>
+                        ))}
+                      </optgroup>
+                      <optgroup label="Piper Neural Voices (Crisp & Natural)">
+                        {LOCAL_NEURAL_VOICES.filter((v) => v.engine === 'piper').map((v) => (
+                          <option key={v.id} value={v.id}>
+                            {v.name} ({v.accent}) — {v.description}
+                          </option>
+                        ))}
+                      </optgroup>
+                      <optgroup label="System Fallback">
+                        {LOCAL_NEURAL_VOICES.filter((v) => v.engine === 'system').map((v) => (
+                          <option key={v.id} value={v.id}>
+                            {v.name} — {v.description}
+                          </option>
+                        ))}
+                      </optgroup>
+                    </select>
+                  </div>
                 </div>
 
                 <div className="flex justify-end pt-2">

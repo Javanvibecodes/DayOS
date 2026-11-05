@@ -92,6 +92,21 @@ export function HelpPage() {
               13. Data Storage & Privacy
             </a>
           </li>
+          <li>
+            <a href="#ai-assistant" onClick={(e) => scrollTo(e, 'ai-assistant')} className="text-primary hover:underline">
+              14. Local AI Assistant & Ollama Guide
+            </a>
+          </li>
+          <li>
+            <a href="#collaborate" onClick={(e) => scrollTo(e, 'collaborate')} className="text-primary hover:underline">
+              15. Local Collaboration & Lock-in Rooms
+            </a>
+          </li>
+          <li>
+            <a href="#connectors" onClick={(e) => scrollTo(e, 'connectors')} className="text-primary hover:underline">
+              16. Google Calendar, Meet & Zoom Connectors
+            </a>
+          </li>
         </ol>
       </nav>
 
@@ -398,7 +413,92 @@ export function HelpPage() {
         <p className="text-on-surface-variant mb-4">
           To create an off-site backup, navigate to <strong>Settings → Data</strong> and click "Export Backup". This produces a complete, open-standard JSON file containing all tasks, goals, projects, routines, meetings, and categories, which can be restored at any time.
         </p>
+      </section>
 
+      <hr className="border-outline-variant/15 my-8" />
+
+      {/* 14. Local AI Assistant & Ollama Guide */}
+      <section id="ai-assistant" className="mb-12 scroll-mt-6">
+        <h2 className="text-2xl font-bold tracking-tight mb-3 text-on-surface">
+          14. Local AI Assistant & Ollama Guide
+        </h2>
+        <p className="text-on-surface-variant mb-4">
+          DayOS includes a local multimodal AI assistant capable of voice and text interaction, agenda summarization, task creation, and note querying without transmitting information across the internet.
+        </p>
+        <h3 className="text-lg font-semibold mb-2 text-on-surface">Setting Up Ollama</h3>
+        <p className="text-on-surface-variant mb-4">
+          To run local open-weights language models entirely on your hardware:
+        </p>
+        <ol className="list-decimal pl-6 space-y-2 mb-4 text-on-surface-variant text-sm">
+          <li>
+            Download and install the official Windows distribution from{' '}
+            <a href="https://ollama.com/download" target="_blank" rel="noreferrer" className="text-primary hover:underline">
+              ollama.com/download
+            </a>.
+          </li>
+          <li>
+            Open PowerShell and download a model suited to your hardware:
+            <ul className="list-disc pl-5 mt-2 space-y-1 font-mono text-xs">
+              <li>ollama run llama3.2 (3B parameters, ~2.0 GB — Recommended for all PCs)</li>
+              <li>ollama run phi3.5 (3.8B parameters, ~2.2 GB — Fast task planning)</li>
+              <li>ollama run qwen2.5 (7B parameters, ~4.7 GB — High precision for 8GB+ RAM)</li>
+              <li>ollama run mistral (7B parameters, ~4.1 GB — Rich reasoning for 8GB+ RAM)</li>
+            </ul>
+          </li>
+          <li>
+            Launch the DayOS AI Assistant via the sparkle icon in the header or the floating action button. DayOS launches the Ollama background process on demand and terminates it upon application exit to prevent memory leakage.
+          </li>
+        </ol>
+        <h3 className="text-lg font-semibold mb-2 text-on-surface">Local Neural Voices (Kokoro & Piper)</h3>
+        <p className="text-on-surface-variant mb-4">
+          Under <strong>Settings → AI Agent</strong>, choose between Kokoro and Piper neural speech profiles for human-like conversational cadence and clear pronunciation. Audition each voice directly using the "Preview Voice" button.
+        </p>
+      </section>
+
+      <hr className="border-outline-variant/15 my-8" />
+
+      {/* 15. Local Collaboration & Lock-in Rooms */}
+      <section id="collaborate" className="mb-12 scroll-mt-6">
+        <h2 className="text-2xl font-bold tracking-tight mb-3 text-on-surface">
+          15. Local Collaboration & Lock-in Rooms
+        </h2>
+        <p className="text-on-surface-variant mb-4">
+          DayOS facilitates real-time synchronization between peer devices over your local area network without requiring account creation or third-party servers.
+        </p>
+        <ul className="list-disc pl-6 space-y-2 mb-4 text-on-surface-variant text-sm">
+          <li>
+            <strong>Device Identifiers:</strong> Each device generates a persistent identifier on first launch (found in Collaborate or Settings). Share your Device ID with collaborators to delegate tasks and coordinate shared goals.
+          </li>
+          <li>
+            <strong>Lock-in Sessions:</strong> Host a synchronized focus room and share the 4-digit session code. Timer starts, pauses, and phase intervals (Work / Rest) broadcast synchronously to all participants with audible transition signals.
+          </li>
+          <li>
+            <strong>Peer Presence:</strong> View whether team members are currently focusing or resting, along with the specific task each person is working on.
+          </li>
+        </ul>
+      </section>
+
+      <hr className="border-outline-variant/15 my-8" />
+
+      {/* 16. Google Calendar, Meet & Zoom Connectors */}
+      <section id="connectors" className="mb-12 scroll-mt-6">
+        <h2 className="text-2xl font-bold tracking-tight mb-3 text-on-surface">
+          16. Google Calendar, Meet & Zoom Connectors
+        </h2>
+        <p className="text-on-surface-variant mb-4">
+          Import and coordinate meetings between DayOS and your calendar platforms:
+        </p>
+        <ul className="list-disc pl-6 space-y-2 mb-4 text-on-surface-variant text-sm">
+          <li>
+            <strong>Google Calendar 2-Way Sync:</strong> Paste your private iCal (.ics) feed URL in Settings to import existing events, or click "Push to Google Calendar" when creating meetings in DayOS.
+          </li>
+          <li>
+            <strong>Instant Video Meeting Links:</strong> In the Meeting Creation dialog, click "+ Google Meet" or "+ Zoom Link" to generate a joinable video conference URL with one click.
+          </li>
+          <li>
+            <strong>One-Click Launching:</strong> Any scheduled meeting featuring a valid video link includes a prominent "Join Meeting" button that launches the target service directly.
+          </li>
+        </ul>
       </section>
     </div>
   );

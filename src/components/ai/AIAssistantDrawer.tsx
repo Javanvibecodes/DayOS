@@ -1,6 +1,11 @@
 import { useState, useEffect, useRef } from 'react';
-import { aiAgentService, speechService } from '@/services/aiAgentService';
-import type { AIMessage, AISettings } from '@/types';
+import {
+  aiAgentService,
+  speechService,
+  ollamaService,
+  MODEL_RECOMMENDATIONS,
+} from '@/services/aiAgentService';
+import type { AIMessage, AISettings, AIModelProvider } from '@/types';
 import { useLockinStore } from '@/stores/lockinStore';
 import { useTaskStore } from '@/stores/taskStore';
 import { toast } from '@/stores/toastStore';
@@ -16,7 +21,7 @@ export function AIAssistantDrawer({ isOpen, onClose }: AIAssistantDrawerProps) {
       id: 'welcome',
       role: 'assistant',
       content:
-        '👋 Hello! I am DayOS AI, your local productivity assistant. I can check your schedule, create tasks, search notes, or guide your focus sessions. How can I help you today?',
+        '👋 Hello! I am DayOS AI, your local productivity companion. I can check your schedule, create tasks, search notes, or guide your focus sessions. How can I help you today?',
       created_at: new Date().toISOString(),
     },
   ]);
@@ -27,16 +32,44 @@ export function AIAssistantDrawer({ isOpen, onClose }: AIAssistantDrawerProps) {
   const [aiSettings, setAiSettings] = useState<AISettings | null>(null);
   const [speechOutputEnabled, setSpeechOutputEnabled] = useState(false);
 
+  // Model & Machine state
+  const [installedOllamaModels, setInstalledOllamaModels] = useState<string[]>([]);
+  const [isOllamaRunning, setIsOllamaRunning] = useState(false);
+  const [showRecommendations, setShowRecommendations] = useState(false);
+  const [machineProfile, setMachineProfile] = useState<{ cores: number; ramGb: number; tier: string }>({
+    cores: 4,
+    ramGb: 8,
+    tier: 'balanced',
+  });
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { startTimer, hostSession } = useLockinStore();
   const { loadTasks } = useTaskStore();
 
   useEffect(() => {
-    aiAgentService.getSettings().then((settings) => {
-      setAiSettings(settings);
-      setSpeechOutputEnabled(settings.speech_output_enabled);
-    });
-  }, []);
+    if (isOpen) {
+      aiAgentService.getSettings().then((settings) => {
+        setAiSettings(settings);
+        setSpeechOutputEnabled(settings.speech_output_enabled);
+      });
+
+      const profile = ollamaService.getMachineCapabilities();
+      setMachineProfile(profile);
+
+      // On-demand launch of Ollama on first user interaction with AI button
+      ollamaService.ensureRunning().then((running) => {
+        setIsOllamaRunning(running);
+        if (running) {
+          ollamaService.getInstalledModels().then((models) => {
+            setInstalledOllamaModels(models);
+            setShowRecommendations(models.length === 0);
+          });
+        } else {
+          setShowRecommendations(true);
+        }
+      });
+    }
+  }, [isOpen]);
 
   useEffect(() => {
     if (isOpen) {
@@ -80,7 +113,7 @@ export function AIAssistantDrawer({ isOpen, onClose }: AIAssistantDrawerProps) {
           created_at: new Date().toISOString(),
         };
         setMessages([...newHistory, assistantMsg]);
-        if (speechOutputEnabled) speechService.speak(replyContent);
+        if (speechOutputEnabled) speechService.speak(replyContent, aiSettings?.tts_voice_id);
         setIsProcessing(false);
         return;
       }
@@ -102,7 +135,7 @@ export function AIAssistantDrawer({ isOpen, onClose }: AIAssistantDrawerProps) {
       setMessages([...newHistory, assistantMessage]);
 
       if (speechOutputEnabled) {
-        speechService.speak(responseText);
+        speechService.speak(responseText, aiSettings?.tts_voice_id);
       }
     } catch (err: any) {
       const errorMsg: AIMessage = {
@@ -164,27 +197,105 @@ export function AIAssistantDrawer({ isOpen, onClose }: AIAssistantDrawerProps) {
     toast.info(nextVal ? 'Voice output enabled' : 'Voice output muted');
   };
 
+  const handleModelSelect = async (val: string) => {
+    if (!aiSettings) return;
+
+    if (val.startsWith('local:')) {
+      const modelName = val.replace('local:', '');
+      const updated = { ...aiSettings, provider: 'ollama' as AIModelProvider, model_name: modelName };
+      setAiSettings(updated);
+      await aiAgentService.saveSettings(updated);
+      toast.success(`Switched to local ${modelName}`);
+    } else if (val.startsWith('cloud:')) {
+      const [provider, modelName] = val.replace('cloud:', '').split(':');
+      const updated = {
+        ...aiSettings,
+        provider: provider as AIModelProvider,
+        model_name: modelName,
+      };
+      setAiSettings(updated);
+      await aiAgentService.saveSettings(updated);
+      toast.success(`Switched to ${provider.toUpperCase()}`);
+    }
+  };
+
+  // Helper to determine active selection string
+  const currentModelVal =
+    aiSettings?.provider === 'ollama'
+      ? `local:${aiSettings.model_name}`
+      : `cloud:${aiSettings?.provider}:${aiSettings?.model_name}`;
+
   return (
     <div className="fixed inset-0 z-50 flex justify-end bg-black/40 backdrop-blur-xs transition-opacity">
       <div className="w-full max-w-md h-full bg-card border-l border-border shadow-2xl flex flex-col justify-between animate-in slide-in-from-right duration-200">
         {/* Drawer Header */}
-        <div className="p-4 border-b border-border flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-primary/20 border border-primary/30 flex items-center justify-center text-primary font-bold text-sm">
+        <div className="p-3.5 border-b border-border flex items-center justify-between gap-2 bg-card">
+          <div className="flex items-center gap-2 min-w-0">
+            <div className="w-7 h-7 rounded-lg bg-primary/20 border border-primary/30 flex items-center justify-center text-primary text-xs shrink-0">
               ✨
             </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="font-semibold text-foreground text-sm">DayOS AI Assistant</span>
-                <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-muted text-muted-foreground uppercase">
-                  {aiSettings?.provider === 'ollama' ? 'Local Ollama' : aiSettings?.provider || 'Offline'}
-                </span>
-              </div>
-              <p className="text-[11px] text-muted-foreground">Voice & text local productivity agent</p>
-            </div>
+
+            {/* Model Selector Dropdown with API Indicators */}
+            <select
+              value={currentModelVal}
+              onChange={(e) => handleModelSelect(e.target.value)}
+              className="px-2 py-1 bg-surface-container-low border border-border rounded-lg text-xs font-medium text-foreground focus:outline-hidden focus:ring-1 focus:ring-primary truncate max-w-[190px]"
+            >
+              <optgroup label="🖥️ Local Models (Ollama)">
+                {installedOllamaModels.length > 0 ? (
+                  installedOllamaModels.map((m) => (
+                    <option key={m} value={`local:${m}`}>
+                      🟢 {m} (Local)
+                    </option>
+                  ))
+                ) : (
+                  <option value="local:none" disabled>
+                    ⚪ No local models installed
+                  </option>
+                )}
+              </optgroup>
+              <optgroup label="☁️ Paid / Cloud Models">
+                <option value="cloud:openai:gpt-4o-mini">
+                  {aiSettings?.api_key && aiSettings.provider === 'openai' ? '🟢' : '⚪'} OpenAI (GPT-4o-mini)
+                </option>
+                <option value="cloud:gemini:gemini-1.5-flash">
+                  {aiSettings?.api_key && aiSettings.provider === 'gemini' ? '🟢' : '⚪'} Google Gemini (Flash)
+                </option>
+                <option value="cloud:anthropic:claude-3-5-sonnet">
+                  {aiSettings?.api_key && aiSettings.provider === 'anthropic' ? '🟢' : '⚪'} Claude 3.5 Sonnet
+                </option>
+                <option value="cloud:openrouter:deepseek/deepseek-chat">
+                  {aiSettings?.api_key && aiSettings.provider === 'openrouter' ? '🟢' : '⚪'} OpenRouter (Multi)
+                </option>
+              </optgroup>
+            </select>
+
+            {aiSettings?.provider === 'ollama' && (
+              <span
+                className={`text-[9px] px-1.5 py-0.5 rounded font-mono shrink-0 hidden sm:inline ${
+                  isOllamaRunning
+                    ? 'bg-emerald-500/10 text-emerald-500'
+                    : 'bg-amber-500/10 text-amber-500'
+                }`}
+                title={isOllamaRunning ? 'Ollama server is running' : 'Ollama offline'}
+              >
+                {isOllamaRunning ? 'Active' : 'Offline'}
+              </span>
+            )}
           </div>
 
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1 shrink-0">
+            {/* Model Recommendations Toggle */}
+            <button
+              onClick={() => setShowRecommendations(!showRecommendations)}
+              className={`p-1.5 rounded-md text-xs transition-colors ${
+                showRecommendations ? 'bg-primary/20 text-primary' : 'text-muted-foreground hover:text-foreground'
+              }`}
+              title="Local Model Recommendations & Specs"
+            >
+              💡
+            </button>
+
             {/* Text to Speech Toggle */}
             <button
               onClick={toggleTTS}
@@ -207,6 +318,59 @@ export function AIAssistantDrawer({ isOpen, onClose }: AIAssistantDrawerProps) {
             </button>
           </div>
         </div>
+
+        {/* Local Model Availability & Machine Capability Recommendation Banner */}
+        {showRecommendations && (
+          <div className="p-3 bg-muted/40 border-b border-border space-y-2.5 max-h-56 overflow-y-auto">
+            <div className="flex items-center justify-between">
+              <div>
+                <span className="text-[11px] font-bold text-foreground">Local Model Recommendations</span>
+                <p className="text-[10px] text-muted-foreground">
+                  Detected: {machineProfile.cores} CPU Cores • ~{machineProfile.ramGb} GB RAM (
+                  <span className="capitalize font-semibold text-primary">{machineProfile.tier} Tier</span>)
+                </p>
+              </div>
+              <button
+                onClick={() => setShowRecommendations(false)}
+                className="text-[10px] text-muted-foreground hover:text-foreground"
+              >
+                Dismiss
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 gap-2">
+              {MODEL_RECOMMENDATIONS.map((rec) => (
+                <div
+                  key={rec.tag}
+                  className="p-2 rounded-lg bg-card border border-border flex items-center justify-between gap-2 text-xs"
+                >
+                  <div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="font-semibold text-foreground text-[11px]">{rec.name}</span>
+                      <span className="text-[9px] px-1 rounded bg-muted text-muted-foreground font-mono">
+                        {rec.sizeGb}
+                      </span>
+                      <span className="text-[9px] px-1 rounded bg-emerald-500/10 text-emerald-500 font-semibold">
+                        {rec.smoothness}
+                      </span>
+                    </div>
+                    <p className="text-[10px] text-muted-foreground mt-0.5 line-clamp-1">{rec.description}</p>
+                  </div>
+                  <button
+                    onClick={() => {
+                      navigator.clipboard.writeText(rec.command);
+                      toast.success(`Copied "${rec.command}" to clipboard!`);
+                    }}
+                    className="px-2 py-1 bg-primary text-primary-foreground text-[10px] font-semibold rounded shrink-0 hover:bg-primary/90"
+                    title="Copy terminal command to download"
+                  >
+                    Copy Run
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Messages Stream */}
         <div className="flex-1 overflow-y-auto p-4 space-y-3">
@@ -314,4 +478,3 @@ export function AIAssistantDrawer({ isOpen, onClose }: AIAssistantDrawerProps) {
     </div>
   );
 }
-

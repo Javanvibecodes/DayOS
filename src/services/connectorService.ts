@@ -79,7 +79,50 @@ export const connectorService = {
     await connectorService.saveConnectors(updated);
   },
 
-  // Parse standard iCal (.ics) text format
+  // Generate Instant Video Meeting Links
+  generateGoogleMeetLink: (): string => {
+    const chars = 'abcdefghijklmnopqrstuvwxyz';
+    const rand = (n: number) =>
+      Array.from({ length: n }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+    return `https://meet.google.com/${rand(3)}-${rand(4)}-${rand(3)}`;
+  },
+
+  generateZoomLink: (customPmi?: string): string => {
+    if (customPmi && customPmi.trim()) {
+      const cleanPmi = customPmi.replace(/\D/g, '');
+      return `https://zoom.us/j/${cleanPmi}`;
+    }
+    const meetingId = Math.floor(1000000000 + Math.random() * 9000000000);
+    const pwd = Math.floor(100000 + Math.random() * 900000);
+    return `https://zoom.us/j/${meetingId}?pwd=${pwd}`;
+  },
+
+  // 2-Way Google Calendar Sync: Push meeting created in DayOS to Google Calendar
+  pushMeetingToGoogleCalendar: (meeting: {
+    title: string;
+    description?: string | null;
+    date: string;
+    start_time: string;
+    end_time?: string | null;
+    meeting_url?: string | null;
+  }): string => {
+    // Format start and end date-times as ISO compact strings for Google Calendar URL template
+    const startIso = meeting.date.replace(/-/g, '') + 'T' + meeting.start_time.replace(':', '') + '00Z';
+    const endTime = meeting.end_time || meeting.start_time;
+    const endIso = meeting.date.replace(/-/g, '') + 'T' + endTime.replace(':', '') + '00Z';
+
+    const params = new URLSearchParams({
+      action: 'TEMPLATE',
+      text: meeting.title,
+      dates: `${startIso}/${endIso}`,
+      details: [meeting.description, meeting.meeting_url ? `Join URL: ${meeting.meeting_url}` : '']
+        .filter(Boolean)
+        .join('\n\n'),
+      location: meeting.meeting_url || '',
+    });
+
+    return `https://calendar.google.com/calendar/render?${params.toString()}`;
+  },
   parseICalText: (icsText: string): ParsedICalEvent[] => {
     const events: ParsedICalEvent[] = [];
     const lines = icsText.split(/\r\n|\n|\r/);

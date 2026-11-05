@@ -31,6 +31,10 @@ pub fn run() {
                 conn: Mutex::new(db),
             });
 
+            app.manage(commands::OllamaProcessState {
+                child: Mutex::new(None),
+            });
+
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -93,7 +97,16 @@ pub fn run() {
             commands::get_notes_by_folder,
             commands::update_note,
             commands::delete_note,
+            commands::start_ollama,
+            commands::stop_ollama,
         ])
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application")
+        .run(|app_handle, event| {
+            if let tauri::RunEvent::Exit = event {
+                if let Some(state) = app_handle.try_state::<commands::OllamaProcessState>() {
+                    let _ = commands::stop_ollama(state);
+                }
+            }
+        });
 }

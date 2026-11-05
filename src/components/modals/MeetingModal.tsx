@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useMeetingStore } from '@/stores/meetingStore';
 import { toast } from '@/stores/toastStore';
+import { connectorService } from '@/services/connectorService';
 import { MEETING_REMINDER_OPTIONS, type Meeting } from '@/types';
 
 const REMINDER_LABELS: Record<number, string> = {
@@ -191,18 +192,46 @@ export function MeetingModal({ isOpen, onClose, meetingToEdit }: MeetingModalPro
           </div>
 
           <div>
-            <label className="block text-[12px] font-semibold uppercase tracking-wider text-on-surface-variant mb-[12px]">
-              Meeting URL <span className="normal-case font-medium opacity-60">(optional)</span>
-            </label>
+            <div className="flex items-center justify-between mb-[8px] flex-wrap gap-2">
+              <label className="block text-[12px] font-semibold uppercase tracking-wider text-on-surface-variant">
+                Meeting URL <span className="normal-case font-medium opacity-60">(optional)</span>
+              </label>
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const url = connectorService.generateGoogleMeetLink();
+                    setMeetingUrl(url);
+                    toast.success('Generated Google Meet link');
+                  }}
+                  className="px-2 py-0.5 rounded text-[11px] font-medium bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-500 border border-emerald-500/30 transition-colors flex items-center gap-1"
+                >
+                  <span>🟢</span>
+                  <span>+ Google Meet</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const url = connectorService.generateZoomLink();
+                    setMeetingUrl(url);
+                    toast.success('Generated Zoom meeting link');
+                  }}
+                  className="px-2 py-0.5 rounded text-[11px] font-medium bg-blue-500/10 hover:bg-blue-500/20 text-blue-500 border border-blue-500/30 transition-colors flex items-center gap-1"
+                >
+                  <span>📹</span>
+                  <span>+ Zoom Link</span>
+                </button>
+              </div>
+            </div>
             <input
               type="url"
               value={meetingUrl}
               onChange={(e) => setMeetingUrl(e.target.value)}
-              placeholder="https://meet.google.com/... — leave blank if no link"
+              placeholder="https://meet.google.com/... or https://zoom.us/..."
               className="w-full bg-surface-container-low border border-outline-variant/30 rounded-lg px-[12px] py-[10px] text-[14px] text-on-surface focus:outline-none focus:border-primary"
             />
             <p className="text-[11px] text-on-surface-variant/70 mt-[6px]">
-              Join Meeting only appears when a link is set.
+              Join Meeting button appears automatically on the dashboard when a link is set.
             </p>
           </div>
 

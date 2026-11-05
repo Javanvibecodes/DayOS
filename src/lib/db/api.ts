@@ -237,6 +237,12 @@ export const noteApi = {
     invoke('delete_note', { id }),
 };
 
+// Ollama Lifecycle
+export const ollamaApi = {
+  start: (): Promise<boolean> => invoke('start_ollama'),
+  stop: (): Promise<boolean> => invoke('stop_ollama'),
+};
+
 // Note folders
 export const noteFolderApi = {
   create: (req: CreateNoteFolderRequest): Promise<NoteFolder> =>

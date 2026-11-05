@@ -356,3 +356,42 @@ pub fn delete_note(state: State<'_, DbState>, id: String) -> Result<(), String> 
     let conn = state.conn.lock().map_err(|e| e.to_string())?;
     queries::delete_note(&conn, &id).map_err(|e| e.to_string())
 }
+
+pub struct OllamaProcessState {
+    pub child: std::sync::Mutex<Option<std::process::Child>>,
+}
+
+#[tauri::command]
+pub fn start_ollama(state: State<'_, OllamaProcessState>) -> Result<bool, String> {
+    let mut lock = state.child.lock().map_err(|e| e.to_string())?;
+    if lock.is_some() {
+        return Ok(true);
+    }
+
+    let mut cmd = std::process::Command::new("ollama");
+    cmd.arg("serve");
+    #[cfg(target_os = "windows")]
+    {
+        use std::os::windows::process::CommandExt;
+        cmd.creation_flags(0x08000000); // CREATE_NO_WINDOW
+    }
+
+    match cmd.spawn() {
+        Ok(child) => {
+            *lock = Some(child);
+            Ok(true)
+        }
+        Err(e) => Err(format!("Failed to spawn ollama: {}", e)),
+    }
+}
+
+#[tauri::command]
+pub fn stop_ollama(state: State<'_, OllamaProcessState>) -> Result<bool, String> {
+    let mut lock = state.child.lock().map_err(|e| e.to_string())?;
+    if let Some(mut child) = lock.take() {
+        let _ = child.kill();
+        let _ = child.wait();
+        return Ok(true);
+    }
+    Ok(false)
+}

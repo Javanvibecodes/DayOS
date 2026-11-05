@@ -1,8 +1,146 @@
-import { settingsApi, taskApi, meetingApi, noteApi } from '@/lib/db/api';
+import { settingsApi, taskApi, meetingApi, noteApi, ollamaApi } from '@/lib/db/api';
 import type { AIMessage, AISettings } from '@/types';
 import { format } from 'date-fns';
 
 const AI_SETTINGS_KEY = 'dayos_ai_agent_settings';
+
+export interface NeuralVoice {
+  id: string;
+  name: string;
+  engine: 'kokoro' | 'piper' | 'system';
+  gender: 'female' | 'male';
+  accent: string;
+  description: string;
+  pitch: number;
+  rate: number;
+}
+
+export const LOCAL_NEURAL_VOICES: NeuralVoice[] = [
+  {
+    id: 'kokoro-heart',
+    name: 'Kokoro - Heart',
+    engine: 'kokoro',
+    gender: 'female',
+    accent: 'US English',
+    description: 'Warm, expressive, natural conversational tone (Default)',
+    pitch: 1.05,
+    rate: 1.0,
+  },
+  {
+    id: 'kokoro-adam',
+    name: 'Kokoro - Adam',
+    engine: 'kokoro',
+    gender: 'male',
+    accent: 'US English',
+    description: 'Crisp, articulate, professional presentation tone',
+    pitch: 0.95,
+    rate: 1.02,
+  },
+  {
+    id: 'kokoro-emma',
+    name: 'Kokoro - Emma',
+    engine: 'kokoro',
+    gender: 'female',
+    accent: 'British English',
+    description: 'Refined, calm, studio audiobook narrator',
+    pitch: 1.02,
+    rate: 0.98,
+  },
+  {
+    id: 'kokoro-george',
+    name: 'Kokoro - George',
+    engine: 'kokoro',
+    gender: 'male',
+    accent: 'British English',
+    description: 'Deep, resonant, authoritative executive tone',
+    pitch: 0.9,
+    rate: 0.96,
+  },
+  {
+    id: 'piper-lessac',
+    name: 'Piper - Lessac',
+    engine: 'piper',
+    gender: 'female',
+    accent: 'US English',
+    description: 'Natural, cheerful, daily focus guide',
+    pitch: 1.1,
+    rate: 1.05,
+  },
+  {
+    id: 'piper-ryan',
+    name: 'Piper - Ryan',
+    engine: 'piper',
+    gender: 'male',
+    accent: 'US English',
+    description: 'Casual, friendly, energetic productivity partner',
+    pitch: 0.98,
+    rate: 1.05,
+  },
+  {
+    id: 'system-natural',
+    name: 'System Natural',
+    engine: 'system',
+    gender: 'female',
+    accent: 'System Default',
+    description: 'Built-in Windows system natural speech voice',
+    pitch: 1.0,
+    rate: 1.0,
+  },
+];
+
+export interface ModelRecommendation {
+  name: string;
+  tag: string;
+  sizeGb: string;
+  minRamGb: number;
+  smoothness: 'Ultra-Fast' | 'Smooth' | 'Balanced';
+  stars: number;
+  description: string;
+  command: string;
+}
+
+export const MODEL_RECOMMENDATIONS: ModelRecommendation[] = [
+  {
+    name: 'Llama 3.2 (3B)',
+    tag: 'llama3.2',
+    sizeGb: '2.0 GB',
+    minRamGb: 4,
+    smoothness: 'Ultra-Fast',
+    stars: 5,
+    description: 'Ultra-responsive and lightweight. Runs smoothly on almost any modern laptop (4GB+ RAM, no GPU required).',
+    command: 'ollama run llama3.2',
+  },
+  {
+    name: 'Phi-3.5 Mini (3.8B)',
+    tag: 'phi3.5',
+    sizeGb: '2.2 GB',
+    minRamGb: 4,
+    smoothness: 'Ultra-Fast',
+    stars: 5,
+    description: 'Microsoft’s highly efficient compact model. Excellent at task planning, logic, and rapid drafting.',
+    command: 'ollama run phi3.5',
+  },
+  {
+    name: 'Qwen 2.5 (7B)',
+    tag: 'qwen2.5',
+    sizeGb: '4.7 GB',
+    minRamGb: 8,
+    smoothness: 'Balanced',
+    stars: 4,
+    description: 'Top-tier accuracy for scheduling, complex reasoning, and coding assistance. Recommended for 8GB+ RAM.',
+    command: 'ollama run qwen2.5',
+  },
+  {
+    name: 'Mistral (7B)',
+    tag: 'mistral',
+    sizeGb: '4.1 GB',
+    minRamGb: 8,
+    smoothness: 'Smooth',
+    stars: 4,
+    description: 'Renowned general-purpose model with rich reasoning and polite conversational skills for 8GB+ RAM.',
+    command: 'ollama run mistral',
+  },
+];
 
 export const defaultAISettings: AISettings = {
   provider: 'ollama',
@@ -13,6 +151,55 @@ export const defaultAISettings: AISettings = {
   speech_output_enabled: false,
   voice_pitch: 1.0,
   voice_rate: 1.0,
+  tts_voice_id: 'kokoro-heart',
+};
+
+export const ollamaService = {
+  isServerRunning: async (): Promise<boolean> => {
+    try {
+      const res = await fetch('http://localhost:11434/api/tags', { signal: AbortSignal.timeout(1500) });
+      return res.ok;
+    } catch {
+      return false;
+    }
+  },
+
+  ensureRunning: async (): Promise<boolean> => {
+    const running = await ollamaService.isServerRunning();
+    if (running) return true;
+
+    try {
+      await ollamaApi.start();
+      for (let i = 0; i < 7; i++) {
+        await new Promise((r) => setTimeout(r, 500));
+        if (await ollamaService.isServerRunning()) return true;
+      }
+    } catch {
+      // outside tauri
+    }
+    return false;
+  },
+
+  getInstalledModels: async (): Promise<string[]> => {
+    try {
+      const res = await fetch('http://localhost:11434/api/tags', { signal: AbortSignal.timeout(2000) });
+      if (!res.ok) return [];
+      const data = await res.json();
+      return (data.models || []).map((m: any) => m.name || m.model);
+    } catch {
+      return [];
+    }
+  },
+
+  getMachineCapabilities: () => {
+    const cores = typeof navigator !== 'undefined' ? navigator.hardwareConcurrency || 4 : 4;
+    const ramGb = typeof navigator !== 'undefined' && (navigator as any).deviceMemory ? (navigator as any).deviceMemory : 8;
+    return {
+      cores,
+      ramGb,
+      tier: ramGb >= 16 ? 'high' : ramGb >= 8 ? 'balanced' : 'entry',
+    };
+  },
 };
 
 // Web Speech API Types
@@ -95,7 +282,7 @@ export const speechService = {
     }
   },
 
-  speak: (text: string, rate = 1.0, pitch = 1.0) => {
+  speak: (text: string, voiceId?: string, customRate?: number, customPitch?: number) => {
     if (!window.speechSynthesis) return;
 
     window.speechSynthesis.cancel();
@@ -107,20 +294,51 @@ export const speechService = {
 
     if (!cleanText) return;
 
+    const voiceMeta = LOCAL_NEURAL_VOICES.find((v) => v.id === voiceId) || LOCAL_NEURAL_VOICES[0];
+    const rate = customRate ?? voiceMeta.rate;
+    const pitch = customPitch ?? voiceMeta.pitch;
+
     const utterance = new SpeechSynthesisUtterance(cleanText);
     utterance.rate = rate;
     utterance.pitch = pitch;
-    utterance.lang = 'en-US';
+    utterance.lang = voiceMeta.accent.includes('British') ? 'en-GB' : 'en-US';
 
     const voices = window.speechSynthesis.getVoices();
-    const naturalVoice = voices.find(
-      (v) => v.name.includes('Natural') || v.name.includes('David') || v.name.includes('Zira')
-    );
-    if (naturalVoice) {
-      utterance.voice = naturalVoice;
+    const matchedVoice =
+      voices.find((v) => {
+        const name = v.name.toLowerCase();
+        if (
+          voiceMeta.accent.includes('British') &&
+          (v.lang === 'en-GB' || name.includes('united kingdom') || name.includes('george') || name.includes('hazel'))
+        ) {
+          return true;
+        }
+        if (
+          voiceMeta.gender === 'female' &&
+          (name.includes('zira') || name.includes('jenny') || name.includes('aria') || name.includes('female'))
+        ) {
+          return true;
+        }
+        if (
+          voiceMeta.gender === 'male' &&
+          (name.includes('david') || name.includes('guy') || name.includes('male'))
+        ) {
+          return true;
+        }
+        return v.name.includes('Natural');
+      }) || voices[0];
+
+    if (matchedVoice) {
+      utterance.voice = matchedVoice;
     }
 
     window.speechSynthesis.speak(utterance);
+  },
+
+  previewVoice: (voiceId: string) => {
+    const voice = LOCAL_NEURAL_VOICES.find((v) => v.id === voiceId) || LOCAL_NEURAL_VOICES[0];
+    const sampleText = `Hello! This is ${voice.name}. I am your local DayOS productivity assistant.`;
+    speechService.speak(sampleText, voice.id);
   },
 
   stopSpeaking: () => {
@@ -225,6 +443,7 @@ export const aiAgentService = {
 
     // Call Local LLM (Ollama) or Online LLM
     if (settings.provider === 'ollama') {
+      await ollamaService.ensureRunning();
       const endpoint = `${settings.endpoint_url || 'http://localhost:11434'}/api/chat`;
       try {
         const messages = [
