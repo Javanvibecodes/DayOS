@@ -99,6 +99,10 @@ pub fn run() {
             commands::delete_note,
             commands::start_ollama,
             commands::stop_ollama,
+            commands::tts_speak_local,
+            commands::tts_download_model,
+            commands::tts_check_model,
+            commands::tts_list_downloaded,
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")

@@ -2,6 +2,159 @@ use tauri::State;
 use crate::database::DbState;
 use crate::database::models::*;
 use crate::database::queries;
+use std::path::PathBuf;
+use tauri::{Manager, AppHandle};
+
+#[tauri::command]
+pub fn tts_speak_local(app: AppHandle, text: String, voice_id: String) -> Result<(), String> {
+    // Get app data directory for models
+    let app_data = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    let models_dir = app_data.join("tts_models");
+    
+    // Map voice_id to Piper voice model
+    let (model_file, config_file) = match voice_id.as_str() {
+        "piper-lessac" => ("en_US-lessac-medium.onnx", "en_US-lessac-medium.onnx.json"),
+        "piper-ryan" => ("en_US-ryan-medium.onnx", "en_US-ryan-medium.onnx.json"),
+        "kokoro-heart" => ("kokoro-v1.0.onnx", "kokoro-v1.0.json"),
+        _ => ("en_US-lessac-medium.onnx", "en_US-lessac-medium.onnx.json"),
+    };
+    
+    let model_path = models_dir.join(model_file);
+    let config_path = models_dir.join(config_file);
+    
+    // Check if model exists, if not fall back to system TTS
+    if !model_path.exists() {
+        return Err("Local TTS model not found. Please download models in Settings.".to_string());
+    }
+    
+    // Run piper TTS via sidecar or system piper
+    #[cfg(target_os = "windows")]
+    let piper_cmd = "piper.exe";
+    #[cfg(not(target_os = "windows"))]
+    let piper_cmd = "piper";
+    
+    let output_path = models_dir.join("tts_output.wav");
+    
+    let mut cmd = std::process::Command::new(piper_cmd);
+    cmd.args([
+        "--model", model_path.to_str().unwrap(),
+        "--config", config_path.to_str().unwrap(),
+        "--output_file", output_path.to_str().unwrap(),
+    ]);
+    cmd.stdin(std::process::Stdio::piped());
+    
+    let mut child = cmd.spawn().map_err(|e| format!("Failed to start piper: {}", e))?;
+    
+    if let Some(mut stdin) = child.stdin.take() {
+        use std::io::Write;
+        stdin.write_all(text.as_bytes()).map_err(|e| e.to_string())?;
+    }
+    
+    let status = child.wait().map_err(|e| e.to_string())?;
+    
+    if !status.success() {
+        return Err("Piper TTS failed".to_string());
+    }
+    
+    // Play the audio file
+    #[cfg(target_os = "windows")]
+    {
+        std::process::Command::new("powershell")
+            .args(["-c", &format!("(New-Object Media.SoundPlayer '{}').PlaySync()", output_path.display())])
+            .spawn().map_err(|e| e.to_string())?;
+    }
+    #[cfg(target_os = "macos")]
+    {
+        std::process::Command::new("afplay")
+            .arg(&output_path)
+            .spawn().map_err(|e| e.to_string())?;
+    }
+    #[cfg(target_os = "linux")]
+    {
+        std::process::Command::new("aplay")
+            .arg(&output_path)
+            .spawn().map_err(|e| e.to_string())?;
+    }
+    
+    Ok(())
+}
+
+#[tauri::command]
+pub fn tts_download_model(app: AppHandle, voice_id: String) -> Result<String, String> {
+    let app_data = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    let models_dir = app_data.join("tts_models");
+    std::fs::create_dir_all(&models_dir).map_err(|e| e.to_string())?;
+    
+    let (model_url, config_url, model_file, config_file) = match voice_id.as_str() {
+        "piper-lessac" => (
+            "https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_US/lessac/medium/en_US-lessac-medium.onnx",
+            "https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_US/lessac/medium/en_US-lessac-medium.onnx.json",
+            "en_US-lessac-medium.onnx", "en_US-lessac-medium.onnx.json"
+        ),
+        "piper-ryan" => (
+            "https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_US/ryan/medium/en_US-ryan-medium.onnx",
+            "https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_US/ryan/medium/en_US-ryan-medium.onnx.json",
+            "en_US-ryan-medium.onnx", "en_US-ryan-medium.onnx.json"
+        ),
+        "kokoro-heart" => (
+            "https://huggingface.co/hexgrad/Kokoro-82M/resolve/main/kokoro-v1.0.onnx",
+            "https://huggingface.co/hexgrad/Kokoro-82M/resolve/main/config.json",
+            "kokoro-v1.0.onnx", "kokoro-v1.0.json"
+        ),
+        _ => return Err("Unknown voice".to_string()),
+    };
+    
+    // Download model
+    let model_path = models_dir.join(model_file);
+    let config_path = models_dir.join(config_file);
+    
+    let client = reqwest::blocking::Client::new();
+    
+    let mut model_resp = client.get(model_url).send().map_err(|e| e.to_string())?;
+    let mut model_file = std::fs::File::create(&model_path).map_err(|e| e.to_string())?;
+    std::io::copy(&mut model_resp, &mut model_file).map_err(|e| e.to_string())?;
+    
+    let mut config_resp = client.get(config_url).send().map_err(|e| e.to_string())?;
+    let mut config_file = std::fs::File::create(&config_path).map_err(|e| e.to_string())?;
+    std::io::copy(&mut config_resp, &mut config_file).map_err(|e| e.to_string())?;
+    
+    Ok(format!("Downloaded {} to {}", voice_id, models_dir.display()))
+}
+
+#[tauri::command]
+pub fn tts_check_model(app: AppHandle, voice_id: String) -> Result<bool, String> {
+    let app_data = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    let models_dir = app_data.join("tts_models");
+    
+    let model_file = match voice_id.as_str() {
+        "piper-lessac" => "en_US-lessac-medium.onnx",
+        "piper-ryan" => "en_US-ryan-medium.onnx",
+        "kokoro-heart" => "kokoro-v1.0.onnx",
+        _ => return Ok(false),
+    };
+    
+    Ok(models_dir.join(model_file).exists())
+}
+
+#[tauri::command]
+pub fn tts_list_downloaded(app: AppHandle) -> Result<Vec<String>, String> {
+    let app_data = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    let models_dir = app_data.join("tts_models");
+    
+    if !models_dir.exists() {
+        return Ok(vec![]);
+    }
+    
+    let mut voices = Vec::new();
+    for entry in std::fs::read_dir(&models_dir).map_err(|e| e.to_string())? {
+        let entry = entry.map_err(|e| e.to_string())?;
+        let name = entry.file_name().to_string_lossy().to_string();
+        if name.ends_with(".onnx") {
+            voices.push(name.replace(".onnx", ""));
+        }
+    }
+    Ok(voices)
+}
 
 #[tauri::command]
 pub fn create_task(state: State<'_, DbState>, req: CreateTaskRequest) -> Result<Task, String> {

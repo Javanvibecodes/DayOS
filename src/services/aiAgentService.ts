@@ -1,4 +1,5 @@
 import { settingsApi, taskApi, meetingApi, noteApi, ollamaApi } from '@/lib/db/api';
+import { invoke } from '@tauri-apps/api/core';
 import type { AIMessage, AISettings } from '@/types';
 import { format } from 'date-fns';
 
@@ -117,7 +118,7 @@ export const MODEL_RECOMMENDATIONS: ModelRecommendation[] = [
     minRamGb: 4,
     smoothness: 'Ultra-Fast',
     stars: 5,
-    description: 'Microsoft’s highly efficient compact model. Excellent at task planning, logic, and rapid drafting.',
+    description: "Microsoft's highly efficient compact model. Excellent at task planning, logic, and rapid drafting.",
     command: 'ollama run phi3.5',
   },
   {
@@ -211,6 +212,38 @@ interface IWindow extends Window {
 let activeRecognition: any = null;
 
 export const speechService = {
+  // Piper/Kokoro Local TTS
+  speakLocal: async (text: string, voiceId: string): Promise<boolean> => {
+    try {
+      await invoke('tts_speak_local', { text, voiceId });
+      return true;
+    } catch (error) {
+      console.warn('Local TTS failed, falling back to system:', error);
+      return false;
+    }
+  },
+
+  downloadLocalModel: async (voiceId: string): Promise<string> => {
+    return await invoke('tts_download_model', { voiceId });
+  },
+
+  checkLocalModel: async (voiceId: string): Promise<boolean> => {
+    try {
+      return await invoke('tts_check_model', { voiceId });
+    } catch {
+      return false;
+    }
+  },
+
+  listDownloadedModels: async (): Promise<string[]> => {
+    try {
+      return await invoke('tts_list_downloaded');
+    } catch {
+      return [];
+    }
+  },
+
+  // Web Speech API (fallback)
   isSTTAvailable: (): boolean => {
     const win = window as unknown as IWindow;
     return !!(win.SpeechRecognition || win.webkitSpeechRecognition);
@@ -282,7 +315,7 @@ export const speechService = {
     }
   },
 
-  speak: (text: string, voiceId?: string, customRate?: number, customPitch?: number) => {
+  speak: async (text: string, voiceId?: string, customRate?: number, customPitch?: number) => {
     if (!window.speechSynthesis) return;
 
     window.speechSynthesis.cancel();
@@ -295,6 +328,15 @@ export const speechService = {
     if (!cleanText) return;
 
     const voiceMeta = LOCAL_NEURAL_VOICES.find((v) => v.id === voiceId) || LOCAL_NEURAL_VOICES[0];
+    const isLocalVoice = voiceMeta.engine !== 'system';
+
+    // Try local TTS first for neural voices
+    if (isLocalVoice) {
+      const localSuccess = await speechService.speakLocal(cleanText, voiceId || 'kokoro-heart');
+      if (localSuccess) return;
+      // Fall through to system TTS if local fails
+    }
+
     const rate = customRate ?? voiceMeta.rate;
     const pitch = customPitch ?? voiceMeta.pitch;
 
@@ -335,10 +377,10 @@ export const speechService = {
     window.speechSynthesis.speak(utterance);
   },
 
-  previewVoice: (voiceId: string) => {
+  previewVoice: async (voiceId: string) => {
     const voice = LOCAL_NEURAL_VOICES.find((v) => v.id === voiceId) || LOCAL_NEURAL_VOICES[0];
     const sampleText = `Hello! This is ${voice.name}. I am your local DayOS productivity assistant.`;
-    speechService.speak(sampleText, voice.id);
+    await speechService.speak(sampleText, voice.id);
   },
 
   stopSpeaking: () => {
@@ -521,4 +563,3 @@ export const aiAgentService = {
     return `DayOS Assistant here! To connect your AI model, go to Settings → AI Agent and configure either your local Ollama server or your API key. In the meantime, you can ask me to "create task <name>" or "what is on my agenda today".`;
   },
 };
-
