@@ -1,93 +1,73 @@
 # DayOS
 
-A local-first desktop productivity system for Windows. DayOS keeps your tasks, goals, projects, meetings, routines, notes, and daily plans in one place — entirely on your machine, with no account and no internet required.
+**The Local-First Productivity Companion for Windows**
 
-Built with **Tauri 2**, **React 19**, **TypeScript**, **Tailwind CSS v4**, and **SQLite**.
+DayOS keeps your tasks, goals, projects, meetings, routines, notes, and timetable in one place — stored 100% locally on your machine. No accounts, no subscriptions, and zero cloud tracking.
 
-## Features
+---
 
-- **Today** — a focused daily view of your tasks, meetings, and progress
-- **Tasks** — priorities, scheduling, recurrence, reminders, categories, timers, and a detail drawer
-- **Timetable** — hourly and plan-based day layouts with reusable day templates
-- **Goals** — daily/weekly/monthly targets with recurrence, categories, and progress tracking
-- **Projects** — group work under goals with color coding and task rollups
-- **Meetings** — scheduling with desktop reminders and one-click link joining
-- **Routines** — multi-block routines with a guided run mode and progress rules
-- **Pomodoro** — configurable session/focus/break timers with notification sounds
-- **Notes** — folder-based notes with auto-save, search, and quick switching
-- **Command palette** (`Ctrl+K`) — jump anywhere and trigger actions without the mouse
-- **Customizable shortcuts** — rebind any action from Settings → Shortcuts
-- **Themes** — light/dark/system modes with four color themes
-- **Windows integration** — optional startup launch, minimized start, and desktop notifications
+## 💾 Download DayOS for Windows
 
-## Getting Started
+Official releases are compiled, signed, and published exclusively by **Javanvibecodes**.
 
-### Prerequisites
+| Platform | Installer | Architecture | Version |
+| :--- | :--- | :--- | :--- |
+| **Windows 10 / 11** | [**⬇️ Download DayOS-Setup.exe**](releases/DayOS-Setup.exe?raw=true) | x64 (64-bit) | `v0.1.0 (Latest)` |
 
-- [Node.js](https://nodejs.org) 20+
-- [Rust](https://rustup.rs) (stable)
-- Visual Studio 2022 Build Tools with the C++ workload (Windows)
+> **Alternative Download Links:**
+> - [Direct Raw Download (`releases/DayOS-Setup.exe`)](https://github.com/Javanvibecodes/DayOS/raw/master/releases/DayOS-Setup.exe)
+> - [GitHub Releases Page](https://github.com/Javanvibecodes/DayOS/releases)
 
-### Development
+---
 
-```bash
-npm install
-npm run dev
-```
+## 🚀 Installation & First Launch
 
-In a second terminal, launch the Tauri window:
+1. **Download** [DayOS-Setup.exe](releases/DayOS-Setup.exe?raw=true).
+2. **Run the installer**: Double-click `DayOS-Setup.exe`.
+   - *Windows SmartScreen Note:* Because this is an independent desktop application, Windows SmartScreen may show an alert on first launch. Click **More info** $\rightarrow$ **Run anyway** to proceed with installation.
+3. **Launch DayOS**: Once installed, DayOS will launch with its custom frameless desktop interface.
 
-```bash
-npm run tauri dev
-```
+---
 
-### Production build
+## ✨ Features
 
-```bash
-npm run tauri build
-```
+- **Today Dashboard** — A focused daily view of your tasks, upcoming meetings, routines, and daily progress.
+- **Tasks & Subtasks** — Priority levels, custom scheduling, recurrence rules, desktop reminders, task timers, and a detailed drawer.
+- **Timetable** — Hourly schedule grid and reusable day templates to plan your day with intention.
+- **Goals** — Daily, weekly, and monthly targets with category tagging and automatic progress tracking.
+- **Projects** — Group and organize work under high-level goals with custom color coding and task completion rollups.
+- **Meetings** — Schedule meetings with native Windows notification reminders and one-click video link joining.
+- **Guided Routines** — Morning, evening, or workout routine sequences with a step-by-step checklist player.
+- **Pomodoro Timer** — Fully configurable session, focus, and break intervals with customizable synthesized ringtones (Bell, Chime, Digital, Zen, Cosmic, Minimal).
+- **Notes** — Multi-folder markdown notes with instantaneous auto-saving and full-text search.
+- **Command Palette (`Ctrl+K`)** — Global keyboard-driven search and quick actions without taking your hands off the keyboard.
+- **Built-in Keyboard Shortcuts** — Intuitive navigation shortcuts (press `?` anywhere to view).
+- **Themes & Customization** — Dark, Light, and System appearance modes with four distinct accent palettes.
+- **Windows Integration** — Optional auto-start on Windows boot, minimized startup, and native notifications.
 
-Installers are written to `src-tauri/target/release/bundle/` (NSIS `.exe` and `.msi`).
+---
 
-### Scripts
+## 🔒 Privacy & Architecture
 
-| Command            | Description                          |
-| ------------------ | ------------------------------------ |
-| `npm run dev`      | Start the Vite dev server            |
-| `npm run build`    | Type-check and build the web bundle  |
-| `npm run lint`     | Run oxlint                           |
-| `npm run tauri`    | Run the Tauri CLI                    |
+- **Local-First & Offline**: All your data lives exclusively in an embedded SQLite database (`dayos.db`) located in your Windows AppData folder (`%LOCALAPPDATA%\com.dayos.app\`).
+- **No Cloud Dependency**: Works completely offline. No servers, no tracking, and no external data telemetry.
+- **Portable Backups**: Full one-click JSON export and import available in **Settings $\rightarrow$ Data & Storage** to move your data between machines easily.
 
-## Project Structure
+---
 
-```
-src/
-  components/       UI components (layout, modals, ToastHost)
-  pages/            One file per screen
-  stores/           Zustand stores (tasks, goals, notes, toast, ...)
-  services/         Alarm and notification sound playback
-  lib/db/           Typed API layer over Tauri IPC commands
-src-tauri/
-  src/commands/     Tauri command handlers
-  src/database/     SQLite schema, queries, and models
-```
+## 📦 System Requirements
 
-All data lives in a local SQLite database. Settings persist to the `settings` table through `settingsApi`; everything else follows the same pattern.
+- **Operating System:** Windows 10 (version 1809 or higher) or Windows 11 (64-bit)
+- **Runtime:** Microsoft Edge WebView2 (included by default on modern Windows 10 & 11)
+- **RAM:** Minimum 2 GB (DayOS is lightweight, consuming < 150 MB of RAM)
+- **Disk Space:** ~20 MB of free storage
 
-## Notifications
+---
 
-User-facing feedback goes through a single toast system (`src/stores/toastStore.ts` + `src/components/ToastHost.tsx`):
+## ⚖️ Proprietary License & Maintenance Policy
 
-```ts
-import { toast } from '@/stores/toastStore';
+**Copyright © 2026 Javanvibecodes. All Rights Reserved.**
 
-toast.success('Task created');
-toast.error('Could not save the task');
-toast.info('Timer started');
-```
-
-Toasts render bottom-right, auto-dismiss after ~3 seconds, and can be dismissed on click.
-
-## License
-
-MIT
+- **Controlled Releases:** DayOS is developed, maintained, and released exclusively by **Javanvibecodes**. Official releases are published through this repository's `releases/` directory and GitHub Releases.
+- **Closed Source Policy:** This repository does **not** accept external pull requests, code contributions, or modifications. Any submitted pull requests will be automatically closed.
+- **Redistribution & Forks:** Unauthorized redistribution, re-packaging, commercial use, or creation of derivative forks is strictly prohibited without prior written consent.

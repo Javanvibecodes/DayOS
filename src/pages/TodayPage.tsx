@@ -111,7 +111,10 @@ export function TodayPage({ onOpenGoalModal }: TodayPageProps) {
   return (
     <div className="p-[32px] max-w-[1440px] mx-auto">
       {/* Page Header: Greeting & Summary */}
-      <div className="mb-[30px] mt-[20px]">
+      <div className="mb-[30px] mt-[12px]">
+        <p className="font-mono text-[13px] text-primary font-semibold tracking-wide uppercase mb-[10px]">
+          {format(today, 'EEEE, MMMM d')}
+        </p>
         <h2 className="text-[32px] leading-10 tracking-[-0.02em] font-bold text-on-surface mb-[20px]">
           {formatGreeting()}
         </h2>

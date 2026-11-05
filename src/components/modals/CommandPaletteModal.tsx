@@ -53,6 +53,7 @@ export function CommandPaletteModal({
     { label: 'Go to Notes', icon: 'sticky_note_2', action: () => navigateTo('notes') },
     { label: 'Go to Pomodoro', icon: 'timer', action: () => navigateTo('pomodoro') },
     { label: 'Go to Settings', icon: 'settings', action: () => navigateTo('settings') },
+    { label: 'Go to Help & Guide', icon: 'help', action: () => navigateTo('help') },
   ];
 
   const createCommands = [

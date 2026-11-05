@@ -24,6 +24,7 @@ import { SettingsPage } from '@/pages/SettingsPage';
 import { PomodoroPage } from '@/pages/PomodoroPage';
 import { RoutinesPage } from '@/pages/RoutinesPage';
 import { NotesPage } from '@/pages/NotesPage';
+import { HelpPage } from '@/pages/HelpPage';
 import {
   SHORTCUT_ACTIONS,
   SHORTCUT_LABELS,
@@ -268,6 +269,8 @@ function App() {
         return <NotesPage />;
       case 'settings':
         return <SettingsPage />;
+      case 'help':
+        return <HelpPage />;
       case 'today':
       default:
         return (
@@ -280,16 +283,19 @@ function App() {
   };
 
   return (
-    <div className="flex h-screen w-full overflow-hidden bg-background text-on-background">
-      {/* Sidebar - part of flex flow */}
-      <Sidebar />
+    <div className="flex flex-col h-screen w-full overflow-hidden bg-background text-on-background">
+      {/* App Header / TopBar - extends full width across the top */}
+      <TopBar
+        onOpenHelp={() => setHelpModalOpen(true)}
+      />
 
-      {/* Main Content Area - flex-1 fills remaining space */}
-      <div className="flex-1 flex flex-col h-full min-w-0 border-l-2 border-outline-variant/50 pl-[60px] bg-background">
-        <TopBar
-          onOpenHelp={() => setHelpModalOpen(true)}
-        />
-        <main className="flex-1 overflow-y-auto bg-background">
+      {/* Main layout underneath the full-width header */}
+      <div className="flex flex-1 min-h-0 w-full overflow-hidden">
+        {/* Sidebar */}
+        <Sidebar />
+
+        {/* Main Content Area */}
+        <main className="flex-1 overflow-y-auto bg-background min-w-0">
           {renderPage()}
         </main>
       </div>
@@ -379,8 +385,9 @@ function App() {
                   </div>
                 );
               })}
-              <p className="text-[11px] text-on-surface-variant/70 pt-[8px] border-t border-outline-variant/20">
-                Edit any shortcut in Settings → Shortcuts.
+              <p className="text-[11px] text-on-surface-variant/70 pt-[8px] border-t border-outline-variant/20 flex items-center gap-[6px]">
+                <span className="material-symbols-outlined text-[14px]">lock</span>
+                Shortcuts are built into DayOS and cannot be changed.
               </p>
             </div>
           </div>

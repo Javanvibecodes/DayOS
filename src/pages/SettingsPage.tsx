@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { useTaskStore } from '@/stores/taskStore';
 import { useGoalStore } from '@/stores/goalStore';
@@ -65,55 +65,110 @@ function TunePicker({
   onSelect: (key: string, tuneId: string) => void;
   onPreview: (id: TuneId) => void;
 }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [isOpen]);
+
+  const currentTune = TUNE_LIBRARY.find((t) => t.id === current) || TUNE_LIBRARY[0];
+
   return (
-    <div className="p-[16px] rounded-xl bg-surface-container-low flex flex-col gap-[12px]">
-      <div className="flex items-center justify-between gap-[16px] flex-wrap">
-        <div>
-          <p className="text-[14px] font-semibold text-on-surface">{label}</p>
-          <p className="text-[12px] text-on-surface-variant">{hint}</p>
-        </div>
+    <div className="p-[16px] rounded-xl bg-surface-container-low flex flex-col md:flex-row md:items-center justify-between gap-[16px]">
+      <div className="min-w-0 flex-1">
+        <p className="text-[14px] font-semibold text-on-surface">{label}</p>
+        <p className="text-[12px] text-on-surface-variant mt-[2px]">{hint}</p>
+        {!soundEnabled && (
+          <p className="text-[11px] text-on-surface-variant/70 flex items-center gap-[6px] mt-[6px]">
+            <span className="material-symbols-outlined text-[14px]">info</span>
+            Master sound is off — selection still saves; enable Notification Sound to hear alerts.
+          </p>
+        )}
+      </div>
+
+      <div ref={dropdownRef} className="relative flex items-center gap-[8px] shrink-0">
+        {/* Quick preview button for currently selected tune */}
         <button
-          onClick={() => onPreview(current as TuneId)}
-          className="px-[14px] py-[8px] rounded-lg border border-outline-variant/40 text-[12px] font-semibold text-on-surface hover:bg-surface-container-high transition-colors flex items-center gap-[8px]"
+          type="button"
+          onClick={() => onPreview(currentTune.id)}
+          title={`Preview ${currentTune.name}`}
+          className="h-10 w-10 rounded-xl border border-outline-variant/30 text-on-surface-variant hover:text-primary hover:bg-surface-container-high transition-colors flex items-center justify-center shrink-0 cursor-pointer"
         >
-          <span className="material-symbols-outlined text-[16px]">volume_up</span>
-          Preview
+          <span className="material-symbols-outlined text-[18px]">volume_up</span>
         </button>
+
+        {/* Dropdown trigger button */}
+        <button
+          type="button"
+          onClick={() => setIsOpen((prev) => !prev)}
+          aria-haspopup="listbox"
+          aria-expanded={isOpen}
+          className="flex items-center justify-between gap-[12px] min-w-[200px] h-10 px-[14px] rounded-xl bg-surface-container border border-outline-variant/30 hover:border-outline-variant/60 hover:bg-surface-container-high transition-all cursor-pointer text-left shadow-sm"
+        >
+          <div className="flex items-center gap-[10px] min-w-0">
+            <span className="material-symbols-outlined text-primary text-[18px] shrink-0">music_note</span>
+            <span className="text-[13px] font-semibold text-on-surface truncate">{currentTune.name}</span>
+          </div>
+          <span
+            className={`material-symbols-outlined text-[18px] text-on-surface-variant transition-transform duration-200 shrink-0 ${
+              isOpen ? 'rotate-180' : ''
+            }`}
+          >
+            expand_more
+          </span>
+        </button>
+
+        {/* Floating dropdown menu */}
+        {isOpen && (
+          <div
+            role="listbox"
+            aria-label={label}
+            className="absolute right-0 top-full mt-[6px] w-[260px] max-h-[300px] overflow-y-auto bg-surface border border-outline-variant/30 rounded-xl shadow-2xl p-[6px] z-50 flex flex-col gap-[2px] animate-in fade-in zoom-in-95 duration-150"
+          >
+            {TUNE_LIBRARY.map((tune) => {
+              const isSelected = current === tune.id;
+              return (
+                <button
+                  key={tune.id}
+                  type="button"
+                  role="option"
+                  aria-selected={isSelected}
+                  onClick={() => {
+                    // Previews and selects without closing the dropdown!
+                    onSelect(settingKey, tune.id);
+                  }}
+                  title={tune.description}
+                  className={`flex items-center justify-between gap-[12px] px-[12px] py-[8px] rounded-lg text-left transition-colors cursor-pointer group ${
+                    isSelected
+                      ? 'bg-primary-container/20 text-primary font-semibold'
+                      : 'text-on-surface hover:bg-surface-container-high'
+                  }`}
+                >
+                  <div className="flex flex-col min-w-0 pr-[8px]">
+                    <span className="text-[13px] leading-tight font-medium">{tune.name}</span>
+                    <span className="text-[11px] text-on-surface-variant/80 truncate mt-[2px]">
+                      {tune.description}
+                    </span>
+                  </div>
+                  {isSelected && (
+                    <span className="material-symbols-outlined text-[18px] text-primary shrink-0">
+                      check
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        )}
       </div>
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-[10px]" role="radiogroup" aria-label={label}>
-        {TUNE_LIBRARY.map((tune) => {
-          const selected = current === tune.id;
-          return (
-            <button
-              key={tune.id}
-              type="button"
-              role="radio"
-              aria-checked={selected}
-              onClick={() => onSelect(settingKey, tune.id)}
-              title={tune.description}
-              className={`relative flex flex-col items-start gap-[4px] p-[12px] pr-[28px] rounded-lg border text-left transition-all cursor-pointer ${
-                selected
-                  ? 'border-primary bg-primary-container/15 ring-2 ring-primary/25 text-primary'
-                  : 'border-outline-variant/25 bg-surface-container hover:border-outline-variant hover:bg-surface-container-high text-on-surface-variant'
-              }`}
-            >
-              {selected && (
-                <span className="material-symbols-outlined text-[16px] absolute top-[10px] right-[10px]">
-                  check_circle
-                </span>
-              )}
-              <span className="text-[13px] font-semibold">{tune.name}</span>
-              <span className="text-[11px] leading-4 opacity-70">{tune.description}</span>
-            </button>
-          );
-        })}
-      </div>
-      {!soundEnabled && (
-        <p className="text-[11px] text-on-surface-variant/70 flex items-center gap-[6px]">
-          <span className="material-symbols-outlined text-[14px]">info</span>
-          Master sound is off — selection still saves; enable Notification Sound to hear alerts.
-        </p>
-      )}
     </div>
   );
 }
@@ -305,7 +360,7 @@ export function SettingsPage() {
           Preferences & Settings
         </h2>
         <p className="text-[14px] text-on-surface-variant">
-          Customize your DayOS workflow, themes, keybindings, and system preferences.
+          Configure your DayOS workflow, themes, notifications, and system preferences.
         </p>
       </div>
 

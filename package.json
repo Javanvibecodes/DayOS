@@ -8,6 +8,8 @@
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "tauri": "npx @tauri-apps/cli",
+    "release": "npx @tauri-apps/cli build && node scripts/copy-release.cjs",
+    "copy-release": "node scripts/copy-release.cjs",
     "lint": "oxlint"
   },
   "dependencies": {

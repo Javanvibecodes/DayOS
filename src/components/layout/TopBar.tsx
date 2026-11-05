@@ -1,7 +1,5 @@
 import { useState, useEffect } from 'react';
 import { useUIStore } from '@/stores/uiStore';
-import { useSettingsStore } from '@/stores/settingsStore';
-import { format } from 'date-fns';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 
 interface TopBarProps {
@@ -9,91 +7,92 @@ interface TopBarProps {
 }
 
 export function TopBar({ onOpenHelp }: TopBarProps) {
-  const { setCommandPaletteOpen } = useUIStore();
-  const displayName = useSettingsStore((s) => s.displayName);
+  const { setCommandPaletteOpen, currentPage, setCurrentPage } = useUIStore();
   const [showNotifications, setShowNotifications] = useState(false);
   const [isMaximized, setIsMaximized] = useState(false);
-  const today = new Date();
-  const avatarInitial = (displayName || 'U').trim().charAt(0).toUpperCase() || 'U';
 
   useEffect(() => {
-    const win = getCurrentWindow();
-    const checkMaximized = async () => {
-      const max = await win.isMaximized();
-      setIsMaximized(max);
-    };
-    checkMaximized();
-    
-    const setupListener = async () => {
-      const unlisten = await win.onResized(() => {
-        checkMaximized();
-      });
-      return unlisten;
-    };
-    
     let unlistenFn: (() => void) | null = null;
-    setupListener().then(fn => { unlistenFn = fn; });
-    return () => { if (unlistenFn) unlistenFn(); };
+
+    const setup = async () => {
+      try {
+        const win = getCurrentWindow();
+        const max = await win.isMaximized();
+        setIsMaximized(max);
+        unlistenFn = await win.onResized(async () => {
+          const resizedMax = await win.isMaximized();
+          setIsMaximized(resizedMax);
+        });
+      } catch {
+        // outside Tauri
+      }
+    };
+
+    void setup();
+    return () => {
+      if (unlistenFn) unlistenFn();
+    };
   }, []);
 
-  const win = getCurrentWindow();
-  const handleMinimize = () => win.minimize();
-  const handleMaximize = async () => {
-    if (isMaximized) {
-      await win.unmaximize();
-    } else {
-      await win.maximize();
+  const handleMinimize = async (e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    try {
+      const win = getCurrentWindow();
+      await win.minimize();
+    } catch (err) {
+      console.error('Failed to minimize window:', err);
     }
-    setIsMaximized(!isMaximized);
   };
-  const handleClose = () => win.close();
 
-  const noDragStyle: React.CSSProperties = { WebkitAppRegion: 'no-drag' } as React.CSSProperties;
+  const handleMaximize = async (e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    try {
+      const win = getCurrentWindow();
+      await win.toggleMaximize();
+      const max = await win.isMaximized();
+      setIsMaximized(max);
+    } catch (err) {
+      console.error('Failed to toggle maximize window:', err);
+    }
+  };
+
+  const handleClose = async (e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    try {
+      const win = getCurrentWindow();
+      await win.close();
+    } catch (err) {
+      console.error('Failed to close window:', err);
+    }
+  };
+
+  const handleHeaderMouseDown = (e: React.MouseEvent<HTMLElement>) => {
+    // Only primary mouse button and not on interactive controls
+    if (e.button !== 0) return;
+    const target = e.target as HTMLElement;
+    if (target.closest('button, input, [role="button"], a, [data-no-drag]')) {
+      return;
+    }
+    if (!isMaximized) {
+      try {
+        getCurrentWindow().startDragging().catch(() => { });
+      } catch {
+        // ignore outside Tauri
+      }
+    }
+  };
 
   return (
     <header
-      className="h-16 bg-surface border-b border-outline-variant/20 flex justify-between items-center px-[32px] shrink-0 relative select-none"
+      data-tauri-drag-region
+      onMouseDown={handleHeaderMouseDown}
+      className="h-14 pt-[10px] pb-[6px] w-full bg-surface border-b border-outline-variant/20 flex justify-between items-center px-[20px] shrink-0 relative select-none cursor-default"
     >
-      {/* Left: Window Controls (small, left-aligned) + Day & Date */}
-      <div className="flex items-center gap-[12px] min-w-0" style={noDragStyle}>
-        {/* Window Controls */}
-        <div className="flex items-center gap-[1px]">
-          <button
-            onClick={handleMinimize}
-            className="w-6 h-6 flex items-center justify-center text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-colors rounded-[4px]"
-            title="Minimize"
-            aria-label="Minimize"
-          >
-            <span className="material-symbols-outlined text-[14px]">minimize</span>
-          </button>
-          <button
-            onClick={handleMaximize}
-            className="w-6 h-6 flex items-center justify-center text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-colors rounded-[4px]"
-            title={isMaximized ? 'Restore' : 'Maximize'}
-            aria-label={isMaximized ? 'Restore' : 'Maximize'}
-          >
-            <span className="material-symbols-outlined text-[14px]">
-              {isMaximized ? 'fullscreen_exit' : 'fullscreen'}
-            </span>
-          </button>
-          <button
-            onClick={handleClose}
-            className="w-6 h-6 flex items-center justify-center text-on-surface-variant hover:text-error hover:bg-error-container/20 transition-colors rounded-[4px]"
-            title="Close"
-            aria-label="Close"
-          >
-            <span className="material-symbols-outlined text-[14px]">close</span>
-          </button>
-        </div>
-        
-        {/* Day & Date */}
-        <p className="font-mono text-[13px] text-primary font-semibold whitespace-nowrap">
-          {format(today, 'EEEE, MMMM d')}
-        </p>
-      </div>
+      {/* Left: Open space allowing window drag */}
+      <div className="flex-1 min-w-[32px] h-full pointer-events-none" />
 
       {/* Center: Search Command Input */}
-      <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 flex items-center justify-center" style={noDragStyle}>
+      <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 flex items-center justify-center pt-[4px] z-10">
         <div
           className="group cursor-pointer w-64 md:w-80 flex items-center gap-[14px]"
           onClick={() => setCommandPaletteOpen(true)}
@@ -103,7 +102,7 @@ export function TopBar({ onOpenHelp }: TopBarProps) {
           </span>
           <div className="relative flex-1">
             <input
-              className="w-full bg-surface-container-low border border-outline-variant/30 rounded-full py-[10px] pl-[22px] pr-[16px] text-[13px] text-on-surface placeholder:text-on-surface-variant/60 focus:outline-none focus:border-primary transition-all cursor-pointer"
+              className="w-full bg-surface-container-low border border-outline-variant/30 rounded-full py-[8px] pl-[20px] pr-[16px] text-[13px] text-on-surface placeholder:text-on-surface-variant/60 focus:outline-none focus:border-primary transition-all cursor-pointer"
               placeholder="Search commands or tasks..."
               type="text"
               readOnly
@@ -112,50 +111,98 @@ export function TopBar({ onOpenHelp }: TopBarProps) {
         </div>
       </div>
 
-      {/* Right: Actions & Notifications */}
-      <div className="flex items-center gap-[20px] relative z-10" style={noDragStyle}>
-        <div className="flex items-center gap-[12px] border-l border-outline-variant/30 pl-[20px] ml-[8px] relative">
-          {/* Notifications Button */}
-          <div className="relative">
-            <button
-              onClick={() => setShowNotifications(!showNotifications)}
-              className="w-9 h-9 flex items-center justify-center text-on-surface-variant hover:text-primary transition-colors rounded-full hover:bg-surface-container-high relative"
-              title="Notifications"
-            >
-              <span className="material-symbols-outlined text-[20px]">notifications</span>
-            </button>
-
-            {/* Notifications Popover */}
-            {showNotifications && (
-              <div className="absolute right-0 mt-[8px] w-80 bg-surface border border-outline-variant/30 rounded-xl shadow-2xl p-[16px] z-50 animate-in fade-in zoom-in-95 duration-150">
-                <div className="flex justify-between items-center mb-[16px] pb-[8px] border-b border-outline-variant/20">
-                  <h4 className="text-[13px] font-semibold text-on-surface">Notifications</h4>
-                </div>
-                <div className="flex flex-col gap-[18px]">
-                  <div className="p-[8px] rounded-lg bg-surface-container-low text-center text-[12px] text-on-surface-variant">
-                    No new notifications
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Help Button */}
+      {/* Right: Actions, Help & Window Controls (shrink-0 so empty space between search and buttons is draggable) */}
+      <div className="flex items-center gap-[12px] shrink-0 z-10 ml-auto">
+        {/* Notifications Button */}
+        <div className="relative">
           <button
-            onClick={onOpenHelp}
-            className="w-9 h-9 flex items-center justify-center text-on-surface-variant hover:text-primary transition-colors rounded-full hover:bg-surface-container-high"
-            title="Keyboard Shortcuts & Help"
+            type="button"
+            onClick={() => setShowNotifications(!showNotifications)}
+            className="w-8 h-8 flex items-center justify-center text-on-surface-variant hover:text-primary transition-colors rounded-full hover:bg-surface-container-high relative cursor-pointer"
+            title="Notifications"
           >
-            <span className="material-symbols-outlined text-[20px]">help</span>
+            <span className="material-symbols-outlined text-[19px]">notifications</span>
           </button>
 
-          {/* User Profile Avatar */}
-          <div
-            className="w-9 h-9 rounded-full ml-[8px] overflow-hidden border border-outline-variant/50 cursor-pointer bg-primary-container flex items-center justify-center text-on-primary-container font-semibold text-[12px]"
-            title={displayName.trim() || 'User'}
+          {/* Notifications Popover */}
+          {showNotifications && (
+            <div className="absolute right-0 mt-[8px] w-80 bg-surface border border-outline-variant/30 rounded-xl shadow-2xl p-[16px] z-50 animate-in fade-in zoom-in-95 duration-150">
+              <div className="flex justify-between items-center mb-[16px] pb-[8px] border-b border-outline-variant/20">
+                <h4 className="text-[13px] font-semibold text-on-surface">Notifications</h4>
+              </div>
+              <div className="flex flex-col gap-[18px]">
+                <div className="p-[8px] rounded-lg bg-surface-container-low text-center text-[12px] text-on-surface-variant">
+                  No new notifications
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Help Button - Navigates to Help & Guide */}
+        <button
+          type="button"
+          onClick={() => {
+            if (onOpenHelp) onOpenHelp();
+            setCurrentPage('help');
+          }}
+          className={`w-8 h-8 flex items-center justify-center transition-colors rounded-full cursor-pointer ${currentPage === 'help'
+              ? 'bg-primary-container text-on-primary-container font-semibold'
+              : 'text-on-surface-variant hover:text-primary hover:bg-surface-container-high'
+            }`}
+          title="Help & User Guide"
+        >
+          <span className="material-symbols-outlined text-[19px]">help</span>
+        </button>
+
+        {/* Vertical divider */}
+        <div className="h-4 w-[1px] bg-outline-variant/30 mx-[2px]" />
+
+        {/* Window Actions: Minimize, Maximize/Restore, Close */}
+        <div className="flex items-center gap-[14px]">
+          <button
+            type="button"
+            onClick={handleMinimize}
+            className="p-[5px] text-on-surface-variant hover:text-[#a855f7] transition-colors cursor-pointer select-none flex items-center justify-center rounded-sm"
+            title="Minimize"
+            aria-label="Minimize"
           >
-            {avatarInitial}
-          </div>
+            <svg width="7" height="7" viewBox="0 0 7 7" fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round">
+              <line x1="0.5" y1="5.5" x2="6.5" y2="5.5" />
+            </svg>
+          </button>
+
+          <button
+            type="button"
+            onClick={handleMaximize}
+            className="p-[5px] text-on-surface-variant hover:text-[#a855f7] transition-colors cursor-pointer select-none flex items-center justify-center rounded-sm"
+            title={isMaximized ? 'Restore' : 'Maximize'}
+            aria-label={isMaximized ? 'Restore' : 'Maximize'}
+          >
+            {isMaximized ? (
+              <svg width="7" height="7" viewBox="0 0 7 7" fill="none" stroke="currentColor" strokeWidth="1.1" strokeLinejoin="round">
+                <rect x="1.8" y="0.6" width="4.6" height="4.6" rx="0.5" />
+                <polyline points="0.6,2.2 0.6,6.4 4.8,6.4" />
+              </svg>
+            ) : (
+              <svg width="7" height="7" viewBox="0 0 7 7" fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round">
+                <rect x="0.6" y="0.6" width="5.8" height="5.8" rx="0.5" />
+              </svg>
+            )}
+          </button>
+
+          <button
+            type="button"
+            onClick={handleClose}
+            className="p-[5px] text-on-surface-variant hover:text-[#a855f7] transition-colors cursor-pointer select-none flex items-center justify-center rounded-sm"
+            title="Close"
+            aria-label="Close"
+          >
+            <svg width="7" height="7" viewBox="0 0 7 7" fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round">
+              <line x1="1" y1="1" x2="6" y2="6" />
+              <line x1="6" y1="1" x2="1" y2="6" />
+            </svg>
+          </button>
         </div>
       </div>
     </header>

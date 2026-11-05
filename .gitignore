@@ -16,6 +16,10 @@ dist-ssr
 src-tauri/target
 src-tauri/gen/schemas
 
+# Release binaries directory (explicitly allowed for direct git distribution)
+!releases/
+!releases/*.exe
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

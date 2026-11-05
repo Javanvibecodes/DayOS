@@ -17,6 +17,7 @@ export function Sidebar() {
   ];
 
   const footerNavItems = [
+    { id: 'help' as const, label: 'Help & Guide', icon: 'help' },
     { id: 'settings' as const, label: 'Settings', icon: 'settings' },
   ];
 
@@ -41,14 +42,14 @@ export function Sidebar() {
       {/* Header — collapsed keeps logo visible; expanded left-aligned on same margin */}
       <div
         className={cn(
-          'mb-[40px] flex items-center py-[4px]',
-          sidebarCollapsed ? 'justify-center px-0' : 'justify-start px-[8px] gap-[18px]',
+          'mb-[24px] flex items-center py-[2px]',
+          sidebarCollapsed ? 'justify-center px-0' : 'justify-start px-[4px] gap-[12px]',
         )}
       >
         <div
           className={cn(
-            'rounded-xl bg-black flex items-center justify-center shrink-0',
-            sidebarCollapsed ? 'w-10 h-10' : 'w-[72px] h-[72px]',
+            'rounded-lg bg-black flex items-center justify-center shrink-0',
+            sidebarCollapsed ? 'w-8 h-8' : 'w-[36px] h-[36px]',
           )}
         >
           <img
@@ -56,15 +57,15 @@ export function Sidebar() {
             alt="DayOS"
             className={cn(
               'rounded-[inherit]',
-              sidebarCollapsed ? 'w-8 h-8' : 'w-[56px] h-[56px]',
+              sidebarCollapsed ? 'w-6 h-6' : 'w-[28px] h-[28px]',
             )}
           />
         </div>
         {!sidebarCollapsed && (
           <div>
-            <h1 className="font-bold text-on-surface text-[30px] leading-tight">DayOS</h1>
-            <p className="text-[16px] font-medium text-on-surface-variant mt-[8px]">
-              Local-first Productivity
+            <h1 className="font-bold text-on-surface text-[15px] leading-tight">DayOS</h1>
+            <p className="text-[11px] font-medium text-on-surface-variant mt-[2px]">
+              Productivity companion
             </p>
           </div>
         )}

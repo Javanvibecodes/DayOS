@@ -24,52 +24,86 @@ export function WindowControls() {
     return () => { if (unlistenFn) unlistenFn(); };
   }, []);
 
-  const win = getCurrentWindow();
-  const handleMinimize = () => win.minimize();
-  const handleMaximize = async () => {
-    if (isMaximized) {
-      await win.unmaximize();
-    } else {
-      await win.maximize();
+  const handleMinimize = async (e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    try {
+      const win = getCurrentWindow();
+      await win.minimize();
+    } catch (err) {
+      console.error('Failed to minimize window:', err);
     }
-    setIsMaximized(!isMaximized);
   };
-  const handleClose = () => win.close();
+
+  const handleMaximize = async (e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    try {
+      const win = getCurrentWindow();
+      await win.toggleMaximize();
+      const max = await win.isMaximized();
+      setIsMaximized(max);
+    } catch (err) {
+      console.error('Failed to toggle maximize window:', err);
+    }
+  };
+
+  const handleClose = async (e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    try {
+      const win = getCurrentWindow();
+      await win.close();
+    } catch (err) {
+      console.error('Failed to close window:', err);
+    }
+  };
 
   const noDragStyle: React.CSSProperties = { WebkitAppRegion: 'no-drag' } as React.CSSProperties;
 
   return (
     <div
-      className="flex items-center justify-end gap-[2px] p-[2px]"
+      className="flex items-center justify-end gap-[14px]"
       style={noDragStyle}
       role="group"
       aria-label="Window controls"
     >
       <button
         onClick={handleMinimize}
-        className="w-7 h-7 flex items-center justify-center text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-colors rounded-[6px]"
+        className="p-[4px] text-on-surface-variant hover:text-[#a855f7] transition-colors cursor-pointer select-none flex items-center justify-center"
         title="Minimize"
         aria-label="Minimize"
       >
-        <span className="material-symbols-outlined text-[16px]">minimize</span>
+        <svg width="7" height="7" viewBox="0 0 7 7" fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round">
+          <line x1="0.5" y1="5.5" x2="6.5" y2="5.5" />
+        </svg>
       </button>
+
       <button
         onClick={handleMaximize}
-        className="w-7 h-7 flex items-center justify-center text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-colors rounded-[6px]"
+        className="p-[4px] text-on-surface-variant hover:text-[#a855f7] transition-colors cursor-pointer select-none flex items-center justify-center"
         title={isMaximized ? 'Restore' : 'Maximize'}
         aria-label={isMaximized ? 'Restore' : 'Maximize'}
       >
-        <span className="material-symbols-outlined text-[16px]">
-          {isMaximized ? 'fullscreen_exit' : 'fullscreen'}
-        </span>
+        {isMaximized ? (
+          <svg width="7" height="7" viewBox="0 0 7 7" fill="none" stroke="currentColor" strokeWidth="1.1" strokeLinejoin="round">
+            <rect x="1.8" y="0.6" width="4.6" height="4.6" rx="0.5" />
+            <polyline points="0.6,2.2 0.6,6.4 4.8,6.4" />
+          </svg>
+        ) : (
+          <svg width="7" height="7" viewBox="0 0 7 7" fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round">
+            <rect x="0.6" y="0.6" width="5.8" height="5.8" rx="0.5" />
+          </svg>
+        )}
       </button>
+
       <button
         onClick={handleClose}
-        className="w-7 h-7 flex items-center justify-center text-on-surface-variant hover:text-error hover:bg-error-container/20 transition-colors rounded-[6px]"
+        className="p-[4px] text-on-surface-variant hover:text-[#a855f7] transition-colors cursor-pointer select-none flex items-center justify-center"
         title="Close"
         aria-label="Close"
       >
-        <span className="material-symbols-outlined text-[16px]">close</span>
+        <svg width="7" height="7" viewBox="0 0 7 7" fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round">
+          <line x1="1" y1="1" x2="6" y2="6" />
+          <line x1="6" y1="1" x2="1" y2="6" />
+        </svg>
       </button>
     </div>
   );

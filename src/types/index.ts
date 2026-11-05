@@ -252,7 +252,7 @@ export interface TaskStats {
 }
 
 // Navigation
-export type NavItem = 'today' | 'tasks' | 'goals' | 'projects' | 'meetings' | 'timetable' | 'pomodoro' | 'routines' | 'notes' | 'settings';
+export type NavItem = 'today' | 'tasks' | 'goals' | 'projects' | 'meetings' | 'timetable' | 'pomodoro' | 'routines' | 'notes' | 'settings' | 'help';
 
 // Routines
 export interface Routine {
