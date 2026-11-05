@@ -20,6 +20,10 @@ src-tauri/gen/schemas
 !releases/
 !releases/*.exe
 
+# OAuth client credential downloads must never be committed
+client_secret_*.json
+*.apps.googleusercontent.com.json
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

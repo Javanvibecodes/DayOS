@@ -565,26 +565,43 @@ pub fn integration_get_statuses(
 }
 
 #[tauri::command]
-pub fn integration_connect(
+pub async fn integration_connect(
     state: State<'_, SharedIntegrationService>,
     connector: String,
 ) -> Result<ProviderConnectionStatus, ApiError> {
-    state.connect(&connector)
+    let service = state.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || service.connect(&connector))
+        .await
+        .map_err(integration_task_error)?
 }
 
 #[tauri::command]
-pub fn integration_disconnect(
+pub async fn integration_disconnect(
     state: State<'_, SharedIntegrationService>,
     connector: String,
 ) -> Result<ProviderConnectionStatus, ApiError> {
-    state.disconnect(&connector)
+    let service = state.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || service.disconnect(&connector))
+        .await
+        .map_err(integration_task_error)?
 }
 
 #[tauri::command]
-pub fn integration_sync_google_calendar(
+pub async fn integration_sync_google_calendar(
     state: State<'_, SharedIntegrationService>,
 ) -> Result<(), ApiError> {
-    state.sync_google_calendar()
+    let service = state.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || service.sync_google_calendar())
+        .await
+        .map_err(integration_task_error)?
+}
+
+fn integration_task_error(error: tauri::Error) -> ApiError {
+    ApiError::new(
+        "internal_error",
+        format!("The integration task could not complete: {}", error),
+        false,
+    )
 }
 
 #[tauri::command]

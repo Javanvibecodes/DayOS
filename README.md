@@ -50,6 +50,51 @@ Official releases are compiled, signed, and published exclusively by **Javanvibe
 
 ---
 
+## 🔗 Google Calendar, Meet & Zoom Setup
+
+DayOS calls provider APIs directly from the desktop backend. OAuth client configuration is read from environment variables when you start a connection. OAuth tokens are encrypted with Windows DPAPI and never written to SQLite, DayOS settings, logs, or renderer state.
+
+### Google Calendar & Google Meet
+
+1. In the [Google Cloud Console](https://console.cloud.google.com/), enable the **Google Calendar API** and **Google Meet API**.
+2. Create an OAuth client of type **Desktop app**.
+3. Set these environment variables and restart DayOS:
+
+   ```powershell
+   setx DAYOS_GOOGLE_CLIENT_ID "your-client-id.apps.googleusercontent.com"
+   setx DAYOS_GOOGLE_CLIENT_SECRET "your-client-secret"   # optional for desktop clients
+   ```
+
+4. Open **Settings → Connectors** and click **Connect** next to Google Calendar or Google Meet.
+
+The flow uses the Authorization Code grant with PKCE, the system browser, and a loopback callback on `127.0.0.1`. Google desktop clients require the redirect URI to be `http://127.0.0.1:port` with no path. Set `DAYOS_GOOGLE_REDIRECT_PORT` to a fixed port if you need one; the default `0` uses an ephemeral port.
+
+Google scopes requested: `openid`, `email`, `profile`, `calendar.events`, and `meetings.space.created`. Both feature scopes are requested on every Google connection because Google desktop clients do not support incremental authorization.
+
+### Zoom
+
+1. Create a **user-managed OAuth app** in the [Zoom App Marketplace](https://marketplace.zoom.us/).
+2. For a native/desktop loopback flow, enable **Use Public Client OAuth** (PKCE) in the app credentials. Register a loopback redirect URL, for example `http://127.0.0.1:53682/callback`; Zoom matches loopback URIs while ignoring only the port.
+3. Set these environment variables and restart DayOS:
+
+   ```powershell
+   setx DAYOS_ZOOM_CLIENT_ID "your-zoom-client-id"
+   setx DAYOS_ZOOM_REDIRECT_PORT "53682"
+   setx DAYOS_ZOOM_REDIRECT_PATH "/callback"
+   # Optional for confidential clients:
+   # setx DAYOS_ZOOM_CLIENT_SECRET "your-zoom-client-secret"
+   ```
+
+4. Open **Settings → Connectors** and click **Connect** next to Zoom.
+
+Zoom defaults to the granular scopes `user:read:user`, `meeting:read:meeting`, `meeting:write:meeting`, `meeting:update:meeting`, and `meeting:delete:meeting`. Override them with a space- or comma-separated `DAYOS_ZOOM_SCOPES` value if your app uses classic or different scopes. If `DAYOS_ZOOM_CLIENT_SECRET` is omitted, DayOS uses Zoom's public-client PKCE exchange without an Authorization header.
+
+### Token storage
+
+Access and refresh tokens are stored as DPAPI-encrypted files under `%APPDATA%\com.dayos.app\credentials\`. They are bound to the current Windows user and are never exposed to the webview. Disconnecting a provider revokes the token when possible and removes the encrypted local copy.
+
+---
+
 ## 🤖 Local AI Assistant & Ollama Setup
 
 DayOS includes a local multimodal AI productivity assistant that runs directly on your machine without sending your data to the cloud.

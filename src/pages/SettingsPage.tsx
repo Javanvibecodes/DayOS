@@ -95,12 +95,20 @@ function connectorStatusClass(state: ConnectorState): string {
   }
 }
 
-function IntegrationStatusBadge({ status }: { status: ProviderConnectionStatus }) {
+function IntegrationStatusBadge({
+  status,
+  busy = false,
+}: {
+  status: ProviderConnectionStatus;
+  busy?: boolean;
+}) {
+  const state: ConnectorState = busy ? 'connecting' : status.state;
+
   return (
     <span
-      className={`text-[11px] font-semibold px-2 py-0.5 rounded-full border ${connectorStatusClass(status.state)}`}
+      className={`text-[11px] font-semibold px-2 py-0.5 rounded-full border ${connectorStatusClass(state)}`}
     >
-      {CONNECTOR_STATUS_LABELS[status.state] ?? status.state}
+      {CONNECTOR_STATUS_LABELS[state] ?? state}
     </span>
   );
 }
@@ -685,7 +693,12 @@ export function SettingsPage() {
                       </p>
                     </div>
                   </div>
-                  {integrationStatuses && <IntegrationStatusBadge status={integrationStatuses.google_calendar} />}
+                  {integrationStatuses && (
+                    <IntegrationStatusBadge
+                      status={integrationStatuses.google_calendar}
+                      busy={integrationBusy === 'google_calendar'}
+                    />
+                  )}
                 </div>
 
                 {integrationStatuses?.google_calendar.last_error && (
@@ -759,7 +772,12 @@ export function SettingsPage() {
                       </p>
                     </div>
                   </div>
-                  {integrationStatuses && <IntegrationStatusBadge status={integrationStatuses.google_meet} />}
+                  {integrationStatuses && (
+                    <IntegrationStatusBadge
+                      status={integrationStatuses.google_meet}
+                      busy={integrationBusy === 'google_meet'}
+                    />
+                  )}
                 </div>
 
                 {integrationStatuses?.google_meet.last_error && (
@@ -816,7 +834,12 @@ export function SettingsPage() {
                       </p>
                     </div>
                   </div>
-                  {integrationStatuses && <IntegrationStatusBadge status={integrationStatuses.zoom} />}
+                  {integrationStatuses && (
+                    <IntegrationStatusBadge
+                      status={integrationStatuses.zoom}
+                      busy={integrationBusy === 'zoom'}
+                    />
+                  )}
                 </div>
 
                 {integrationStatuses?.zoom.last_error && (

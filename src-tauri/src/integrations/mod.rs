@@ -1,3 +1,5 @@
+pub mod credentials;
+pub mod oauth;
 pub mod providers;
 pub mod service;
 pub mod store;
