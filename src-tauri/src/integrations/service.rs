@@ -9,6 +9,7 @@ use super::credentials::{self, CredentialStore, TokenSet};
 use super::oauth;
 use super::providers::{ProviderContext, ProviderRegistry};
 use super::store::{IntegrationAccount, IntegrationStore};
+use super::sync::google_calendar;
 use super::types::{
     ApiError, ApiResult, ExternalMeetingRequest, ExternalMeetingResult, IntegrationStatuses,
     ProviderConnectionStatus, UpdateExternalMeetingRequest, CONNECTOR_GOOGLE_CALENDAR,
@@ -200,13 +201,92 @@ impl IntegrationService {
             return Err(ApiError::not_connected(CONNECTOR_GOOGLE_CALENDAR));
         }
 
-        // Validate and refresh credentials now. Calendar synchronization itself
-        // is implemented in the next stage.
-        let _ = self.access_token_for(CONNECTOR_GOOGLE_CALENDAR)?;
+        self.store
+            .set_status(GOOGLE_ACCOUNT, "syncing", None)?;
 
-        Err(ApiError::not_configured(
-            "Google Calendar synchronization is not enabled yet. No calendar data was imported.",
-        ))
+        let calendar_id = account
+            .calendar_id
+            .clone()
+            .unwrap_or_else(|| "primary".to_string());
+
+        match self.perform_google_calendar_sync(&calendar_id, &account) {
+            Ok(sync_token) => {
+                self.store
+                    .mark_sync_success(GOOGLE_ACCOUNT, sync_token.as_deref())?;
+                Ok(())
+            }
+            Err(error) => {
+                let state = if error.code == "auth_expired" {
+                    "auth_expired"
+                } else {
+                    "error"
+                };
+                if let Err(status_error) =
+                    self.store
+                        .set_status(GOOGLE_ACCOUNT, state, Some(&error.message))
+                {
+                    log::warn!(
+                        "Could not record Google Calendar sync failure: {}",
+                        status_error.code
+                    );
+                }
+                log::warn!("Google Calendar sync failed: {}", error.code);
+                Err(error)
+            }
+        }
+    }
+
+    fn perform_google_calendar_sync(
+        &self,
+        calendar_id: &str,
+        account: &IntegrationAccount,
+    ) -> ApiResult<Option<String>> {
+        let access_token = self.access_token_for(CONNECTOR_GOOGLE_CALENDAR)?;
+
+        let mut batch = match google_calendar::fetch_events(
+            &access_token,
+            calendar_id,
+            GOOGLE_ACCOUNT,
+            account.sync_token.as_deref(),
+        ) {
+            Ok(batch) => batch,
+            Err(error) if error.code == "sync_token_invalid" => {
+                // Google expired the incremental cursor. Fall back to a full
+                // bounded sync and replace the cursor instead of failing.
+                log::info!("Google Calendar sync token expired; running a full resync");
+                google_calendar::fetch_events(
+                    &access_token,
+                    calendar_id,
+                    GOOGLE_ACCOUNT,
+                    None,
+                )?
+            }
+            Err(error) => return Err(error),
+        };
+
+        let outcome = self.store.apply_calendar_sync(
+            calendar_id,
+            GOOGLE_ACCOUNT,
+            &batch.meetings,
+            &batch.cancelled,
+        )?;
+
+        log::info!(
+            "Google Calendar sync complete: {} imported, {} updated, {} cancelled",
+            outcome.imported,
+            outcome.updated,
+            outcome.cancelled
+        );
+
+        let next_sync_token = match (batch.next_sync_token.take(), batch.full_sync) {
+            (Some(token), _) => Some(token),
+            // A full sync without a cursor must not reuse an expired token.
+            (None, true) => None,
+            // A partial page response without a new cursor keeps the old one.
+            (None, false) => account.sync_token.clone(),
+        };
+
+        Ok(next_sync_token)
     }
 
     pub async fn create_meeting(

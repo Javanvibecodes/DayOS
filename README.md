@@ -43,7 +43,7 @@ Official releases are compiled, signed, and published exclusively by **Javanvibe
 - **Command Palette (`Ctrl+K`)** — Global keyboard-driven search and quick actions without taking your hands off the keyboard.
 - **Built-in Keyboard Shortcuts** — Intuitive navigation shortcuts (press `?` anywhere to view).
 - **Local Collaboration & Lock-in** — Host or join synchronized Pomodoro sessions with nearby peers over your local network using Device Identifiers (zero cloud accounts).
-- **Google Calendar, Meet & Zoom Integrations** — Official Google Calendar API sync plus real **Google Meet** and **Zoom** meeting creation through connected provider accounts. OAuth credentials are stored locally in Windows Credential Manager; no DayOS account or cloud database is required.
+- **Google Calendar, Meet & Zoom Integrations** — Official Google Calendar API sync with sync tokens, plus provider adapters for Google Meet and Zoom meeting creation. OAuth credentials are stored locally with Windows DPAPI; no DayOS account or cloud database is required.
 - **Multimodal Local AI Assistant** — Voice & text productivity agent supporting on-demand local models (**Ollama**) and cloud APIs with **Kokoro & Piper** local neural voices.
 - **Themes & Customization** — Dark, Light, and System appearance modes with four distinct accent palettes.
 - **Windows Integration** — Optional auto-start on Windows boot, minimized startup, and native notifications.
@@ -70,6 +70,18 @@ DayOS calls provider APIs directly from the desktop backend. OAuth client config
 The flow uses the Authorization Code grant with PKCE, the system browser, and a loopback callback on `127.0.0.1`. Google desktop clients require the redirect URI to be `http://127.0.0.1:port` with no path. Set `DAYOS_GOOGLE_REDIRECT_PORT` to a fixed port if you need one; the default `0` uses an ephemeral port.
 
 Google scopes requested: `openid`, `email`, `profile`, `calendar.events`, and `meetings.space.created`. Both feature scopes are requested on every Google connection because Google desktop clients do not support incremental authorization.
+
+### Google Calendar sync
+
+Calendar sync is a one-way import from Google Calendar into the local DayOS meeting list. The first sync imports events from 90 days in the past through 12 months in the future. DayOS then stores Google's `nextSyncToken` and uses it for incremental syncs, so later runs only fetch changes and cancellations.
+
+- Events modified or moved in Google Calendar update the matching local meeting.
+- Events cancelled in Google Calendar are removed from DayOS during incremental sync.
+- A full sync only inserts or updates events; it never clears unrelated local meetings.
+- If Google expires the sync token, DayOS automatically performs a full bounded resync.
+- Run a sync from **Settings → Connectors → Sync now** after connecting Google Calendar.
+
+The sync is read-only with respect to Google Calendar: DayOS does not push local meeting edits back to Google in this version.
 
 ### Zoom
 

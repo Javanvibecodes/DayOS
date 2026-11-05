@@ -389,6 +389,7 @@ export function SettingsPage() {
     setIntegrationBusy('google_calendar');
     try {
       await meetingIntegrationService.syncGoogleCalendar();
+      await useMeetingStore.getState().loadMeetings();
       toast.success('Google Calendar sync complete');
     } catch (error) {
       toast.error(meetingIntegrationService.errorMessage(error));
