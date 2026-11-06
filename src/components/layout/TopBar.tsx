@@ -169,16 +169,16 @@ export function TopBar({ onOpenHelp, onOpenAI }: TopBarProps) {
         {/* Vertical divider */}
         <div className="h-4 w-[1px] bg-outline-variant/30 mx-[2px]" />
 
-        {/* Window Actions: Minimize, Maximize/Restore, Close — half size, purple hover */}
+        {/* Window Actions: Minimize, Maximize/Restore, Close — doubled size, purple hover */}
         <div className="flex items-center gap-[6px]">
           <button
             type="button"
             onClick={handleMinimize}
-            className="p-[2px] text-on-surface-variant hover:text-[#a855f7] transition-colors cursor-pointer select-none flex items-center justify-center rounded-[3px]"
+            className="w-6 h-6 text-on-surface-variant hover:text-[#a855f7] hover:bg-surface-container-high transition-colors cursor-pointer select-none flex items-center justify-center rounded-[5px]"
             title="Minimize"
             aria-label="Minimize"
           >
-            <svg width="4" height="4" viewBox="0 0 4 4" fill="none" stroke="currentColor" strokeWidth="1" strokeLinecap="round">
+            <svg width="8" height="8" viewBox="0 0 4 4" fill="none" stroke="currentColor" strokeWidth="1" strokeLinecap="round">
               <line x1="0.5" y1="3.5" x2="3.5" y2="3.5" />
             </svg>
           </button>
@@ -186,17 +186,17 @@ export function TopBar({ onOpenHelp, onOpenAI }: TopBarProps) {
           <button
             type="button"
             onClick={handleMaximize}
-            className="p-[2px] text-on-surface-variant hover:text-[#a855f7] transition-colors cursor-pointer select-none flex items-center justify-center rounded-[3px]"
+            className="w-6 h-6 text-on-surface-variant hover:text-[#a855f7] hover:bg-surface-container-high transition-colors cursor-pointer select-none flex items-center justify-center rounded-[5px]"
             title={isMaximized ? 'Restore' : 'Maximize'}
             aria-label={isMaximized ? 'Restore' : 'Maximize'}
           >
             {isMaximized ? (
-              <svg width="4" height="4" viewBox="0 0 4 4" fill="none" stroke="currentColor" strokeWidth="0.9" strokeLinejoin="round">
+              <svg width="8" height="8" viewBox="0 0 4 4" fill="none" stroke="currentColor" strokeWidth="0.9" strokeLinejoin="round">
                 <rect x="1" y="0.3" width="2.7" height="2.7" rx="0.3" />
                 <polyline points="0.3,1.2 0.3,3.4 2.5,3.4" />
               </svg>
             ) : (
-              <svg width="4" height="4" viewBox="0 0 4 4" fill="none" stroke="currentColor" strokeWidth="1" strokeLinejoin="round">
+              <svg width="8" height="8" viewBox="0 0 4 4" fill="none" stroke="currentColor" strokeWidth="1" strokeLinejoin="round">
                 <rect x="0.3" y="0.3" width="3.4" height="3.4" rx="0.3" />
               </svg>
             )}
@@ -205,11 +205,11 @@ export function TopBar({ onOpenHelp, onOpenAI }: TopBarProps) {
           <button
             type="button"
             onClick={handleClose}
-            className="p-[2px] text-on-surface-variant hover:text-[#a855f7] transition-colors cursor-pointer select-none flex items-center justify-center rounded-[3px]"
+            className="w-6 h-6 text-on-surface-variant hover:text-[#a855f7] hover:bg-surface-container-high transition-colors cursor-pointer select-none flex items-center justify-center rounded-[5px]"
             title="Close"
             aria-label="Close"
           >
-            <svg width="4" height="4" viewBox="0 0 4 4" fill="none" stroke="currentColor" strokeWidth="1" strokeLinecap="round">
+            <svg width="8" height="8" viewBox="0 0 4 4" fill="none" stroke="currentColor" strokeWidth="1" strokeLinecap="round">
               <line x1="0.6" y1="0.6" x2="3.4" y2="3.4" />
               <line x1="3.4" y1="0.6" x2="0.6" y2="3.4" />
             </svg>
