@@ -596,6 +596,8 @@ export interface AISettings {
   voice_rate: number;
   tts_voice_id?: string;
   cloud_keys?: Record<string, string>;
+  ollama_models_dir?: string;
+  tts_models_dir?: string;
 }
 
 export interface AIMessage {

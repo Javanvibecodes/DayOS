@@ -174,12 +174,21 @@ export const ollamaService = {
     }
   },
 
-  ensureRunning: async (): Promise<boolean> => {
+  ensureRunning: async (customDir?: string): Promise<boolean> => {
     const running = await ollamaService.isServerRunning();
     if (running) return true;
 
     try {
-      await ollamaApi.start();
+      let dir = customDir;
+      if (!dir) {
+        try {
+          const s = await aiAgentService.getSettings();
+          dir = s.ollama_models_dir;
+        } catch {
+          // ignore
+        }
+      }
+      await ollamaApi.start(dir);
       for (let i = 0; i < 7; i++) {
         await new Promise((r) => setTimeout(r, 500));
         if (await ollamaService.isServerRunning()) return true;
@@ -277,9 +286,18 @@ let activeRecognition: any = null;
 
 export const speechService = {
   // Piper/Kokoro Local TTS
-  speakLocal: async (text: string, voiceId: string): Promise<boolean> => {
+  speakLocal: async (text: string, voiceId: string, customDir?: string): Promise<boolean> => {
     try {
-      await invoke('tts_speak_local', { text, voiceId });
+      let dir = customDir;
+      if (!dir) {
+        try {
+          const s = await aiAgentService.getSettings();
+          dir = s.tts_models_dir;
+        } catch {
+          // ignore
+        }
+      }
+      await invoke('tts_speak_local', { text, voiceId, customDir: dir });
       return true;
     } catch (error) {
       console.warn('Local TTS failed, falling back to system:', error);
@@ -287,21 +305,48 @@ export const speechService = {
     }
   },
 
-  downloadLocalModel: async (voiceId: string): Promise<string> => {
-    return await invoke('tts_download_model', { voiceId });
+  downloadLocalModel: async (voiceId: string, customDir?: string): Promise<string> => {
+    let dir = customDir;
+    if (!dir) {
+      try {
+        const s = await aiAgentService.getSettings();
+        dir = s.tts_models_dir;
+      } catch {
+        // ignore
+      }
+    }
+    return await invoke('tts_download_model', { voiceId, customDir: dir });
   },
 
-  checkLocalModel: async (voiceId: string): Promise<boolean> => {
+  checkLocalModel: async (voiceId: string, customDir?: string): Promise<boolean> => {
     try {
-      return await invoke('tts_check_model', { voiceId });
+      let dir = customDir;
+      if (!dir) {
+        try {
+          const s = await aiAgentService.getSettings();
+          dir = s.tts_models_dir;
+        } catch {
+          // ignore
+        }
+      }
+      return await invoke('tts_check_model', { voiceId, customDir: dir });
     } catch {
       return false;
     }
   },
 
-  listDownloadedModels: async (): Promise<string[]> => {
+  listDownloadedModels: async (customDir?: string): Promise<string[]> => {
     try {
-      return await invoke('tts_list_downloaded');
+      let dir = customDir;
+      if (!dir) {
+        try {
+          const s = await aiAgentService.getSettings();
+          dir = s.tts_models_dir;
+        } catch {
+          // ignore
+        }
+      }
+      return await invoke('tts_list_downloaded', { customDir: dir });
     } catch {
       return [];
     }

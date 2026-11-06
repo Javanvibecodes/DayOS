@@ -239,7 +239,8 @@ export const noteApi = {
 
 // Ollama Lifecycle
 export const ollamaApi = {
-  start: (): Promise<boolean> => invoke('start_ollama'),
+  start: (customDir?: string): Promise<boolean> =>
+    invoke('start_ollama', { customDir }),
   stop: (): Promise<boolean> => invoke('stop_ollama'),
 };
 

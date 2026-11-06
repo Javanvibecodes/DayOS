@@ -1,4 +1,5 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { invoke } from '@tauri-apps/api/core';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { useTaskStore } from '@/stores/taskStore';
 import { useGoalStore } from '@/stores/goalStore';
@@ -271,29 +272,94 @@ export function SettingsPage() {
   const [editingCloudProvider, setEditingCloudProvider] = useState<string | null>(null);
   const [cloudKeyInput, setCloudKeyInput] = useState('');
   const [activeMenuCloudProvider, setActiveMenuCloudProvider] = useState<string | null>(null);
+  const [defaultStoragePaths, setDefaultStoragePaths] = useState<{
+    default_ollama_dir: string;
+    default_tts_dir: string;
+  } | null>(null);
+
+  const refreshTTSModels = useCallback(async (customDir?: string) => {
+    try {
+      const downloaded = await speechService.listDownloadedModels(customDir);
+      const status: Record<string, 'downloaded' | 'downloading' | 'not_downloaded'> = {};
+      const hasKokoro = downloaded.some((d) => d.toLowerCase().includes('kokoro'));
+      LOCAL_NEURAL_VOICES.forEach((v) => {
+        if (v.engine === 'system') {
+          status[v.id] = 'downloaded';
+        } else if (v.engine === 'kokoro') {
+          status[v.id] = hasKokoro ? 'downloaded' : 'not_downloaded';
+        } else {
+          status[v.id] = downloaded.some(
+            (d) => d.includes(v.id.replace('-', '_')) || d.includes(v.id)
+          )
+            ? 'downloaded'
+            : 'not_downloaded';
+        }
+      });
+      setModelDownloadStatus(status);
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  const handlePickFolder = async (target: 'ollama' | 'tts') => {
+    try {
+      const currentPath =
+        target === 'ollama'
+          ? aiConfig.ollama_models_dir || defaultStoragePaths?.default_ollama_dir || ''
+          : aiConfig.tts_models_dir || defaultStoragePaths?.default_tts_dir || '';
+      const selected = await invoke<string | null>('pick_folder', { defaultPath: currentPath });
+      if (selected) {
+        if (target === 'ollama') {
+          const updated = { ...aiConfig, ollama_models_dir: selected };
+          setAiConfig(updated);
+          await aiAgentService.saveSettings(updated);
+          toast.success('Ollama model directory updated');
+        } else {
+          const updated = { ...aiConfig, tts_models_dir: selected };
+          setAiConfig(updated);
+          await aiAgentService.saveSettings(updated);
+          await refreshTTSModels(selected);
+          toast.success('TTS model directory updated');
+        }
+      }
+    } catch (e) {
+      toast.error('Failed to select folder: ' + String(e));
+    }
+  };
+
+  const handleOpenDirectory = async (path: string) => {
+    if (!path) return;
+    try {
+      await invoke('open_directory', { path });
+    } catch (e) {
+      toast.error('Failed to open directory: ' + String(e));
+    }
+  };
+
+  const handleResetFolder = async (target: 'ollama' | 'tts') => {
+    if (target === 'ollama') {
+      const updated = { ...aiConfig, ollama_models_dir: undefined };
+      setAiConfig(updated);
+      await aiAgentService.saveSettings(updated);
+      toast.success('Ollama directory reset to default');
+    } else {
+      const updated = { ...aiConfig, tts_models_dir: undefined };
+      setAiConfig(updated);
+      await aiAgentService.saveSettings(updated);
+      await refreshTTSModels(undefined);
+      toast.success('TTS directory reset to default');
+    }
+  };
 
   useEffect(() => {
-    const checkModels = async () => {
-      try {
-        const downloaded = await speechService.listDownloadedModels();
-        const status: Record<string, 'downloaded' | 'downloading' | 'not_downloaded'> = {};
-        const hasKokoro = downloaded.some(d => d.toLowerCase().includes('kokoro'));
-        LOCAL_NEURAL_VOICES.forEach(v => {
-          if (v.engine === 'system') {
-            status[v.id] = 'downloaded';
-          } else if (v.engine === 'kokoro') {
-            status[v.id] = hasKokoro ? 'downloaded' : 'not_downloaded';
-          } else {
-            status[v.id] = downloaded.some(d => d.includes(v.id.replace('-', '_')) || d.includes(v.id)) ? 'downloaded' : 'not_downloaded';
-          }
-        });
-        setModelDownloadStatus(status);
-      } catch {
-        // ignore
-      }
-    };
-    checkModels();
+    invoke<{ default_ollama_dir: string; default_tts_dir: string }>('get_model_storage_paths')
+      .then(setDefaultStoragePaths)
+      .catch(() => {});
   }, []);
+
+  useEffect(() => {
+    void refreshTTSModels();
+  }, [refreshTTSModels]);
 
   useEffect(() => {
     const checkOllama = async () => {
@@ -360,12 +426,15 @@ export function SettingsPage() {
 
   useEffect(() => {
     initDevice();
-    aiAgentService.getSettings().then(setAiConfig);
+    aiAgentService.getSettings().then((cfg) => {
+      setAiConfig(cfg);
+      void refreshTTSModels(cfg.tts_models_dir);
+    });
     meetingIntegrationService
       .getStatuses()
       .then(setIntegrationStatuses)
       .catch(() => setIntegrationStatuses(null));
-  }, [initDevice]);
+  }, [initDevice, refreshTTSModels]);
 
   const refreshIntegrationStatuses = async () => {
     try {
@@ -1019,6 +1088,73 @@ export function SettingsPage() {
                     </span>
                   </div>
 
+                  {/* Ollama Models Storage Location Selector */}
+                  <div className="p-3.5 rounded-xl bg-surface-container-low border border-outline-variant/20 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between gap-2 mb-1.5">
+                        <label className="text-[11px] font-bold uppercase tracking-wider text-on-surface-variant flex items-center gap-1.5">
+                          <span className="material-symbols-outlined text-[15px] text-primary">folder</span>
+                          Ollama Download Location
+                        </label>
+                        {aiConfig.ollama_models_dir && (
+                          <span className="text-[10px] font-semibold text-primary px-1.5 py-0.5 rounded bg-primary/10 border border-primary/20">
+                            Custom Location
+                          </span>
+                        )}
+                      </div>
+                      <input
+                        type="text"
+                        value={aiConfig.ollama_models_dir ?? defaultStoragePaths?.default_ollama_dir ?? ''}
+                        placeholder={defaultStoragePaths?.default_ollama_dir || 'Default system directory (~/.ollama/models)'}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setAiConfig((prev) => ({ ...prev, ollama_models_dir: val.trim() ? val : undefined }));
+                        }}
+                        onBlur={async () => {
+                          await aiAgentService.saveSettings(aiConfig);
+                        }}
+                        className="w-full bg-surface border border-outline-variant/30 rounded-lg px-3 py-1.5 text-[12px] font-mono text-on-surface focus:outline-none focus:border-primary truncate"
+                        title={aiConfig.ollama_models_dir ?? defaultStoragePaths?.default_ollama_dir ?? ''}
+                      />
+                      <p className="text-[11px] text-on-surface-variant/80 mt-1">
+                        Where Ollama stores model weights on your drive (sets <code className="text-primary font-mono text-[10px]">OLLAMA_MODELS</code>).
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0 pt-1 sm:pt-0 self-end sm:self-center">
+                      <button
+                        type="button"
+                        onClick={() => handlePickFolder('ollama')}
+                        className="px-3 py-1.5 text-[12px] font-semibold rounded-lg bg-surface border border-outline-variant/30 text-on-surface hover:bg-surface-container transition-colors flex items-center gap-1.5 shadow-sm"
+                        title="Browse for folder..."
+                      >
+                        <span className="material-symbols-outlined text-[16px] text-primary">folder_open</span>
+                        Browse...
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          handleOpenDirectory(
+                            aiConfig.ollama_models_dir || defaultStoragePaths?.default_ollama_dir || ''
+                          )
+                        }
+                        className="p-1.5 text-[12px] font-medium rounded-lg bg-surface border border-outline-variant/30 text-on-surface hover:bg-surface-container transition-colors shadow-sm"
+                        title="Open in File Explorer"
+                      >
+                        <span className="material-symbols-outlined text-[16px]">launch</span>
+                      </button>
+                      {aiConfig.ollama_models_dir && (
+                        <button
+                          type="button"
+                          onClick={() => handleResetFolder('ollama')}
+                          className="px-2.5 py-1.5 text-[11px] font-medium rounded-lg bg-surface border border-outline-variant/30 text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-colors"
+                          title="Reset to default directory"
+                        >
+                          Reset
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
                     {MODEL_RECOMMENDATIONS.map((rec) => {
                       const isInstalled = installedOllamaModels.some(
@@ -1183,6 +1319,74 @@ export function SettingsPage() {
                     </button>
                   </div>
 
+                  {/* TTS Models Storage Location Selector */}
+                  <div className="p-3.5 rounded-xl bg-surface-container-low border border-outline-variant/20 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between gap-2 mb-1.5">
+                        <label className="text-[11px] font-bold uppercase tracking-wider text-on-surface-variant flex items-center gap-1.5">
+                          <span className="material-symbols-outlined text-[15px] text-primary">folder</span>
+                          TTS Model Storage Directory
+                        </label>
+                        {aiConfig.tts_models_dir && (
+                          <span className="text-[10px] font-semibold text-primary px-1.5 py-0.5 rounded bg-primary/10 border border-primary/20">
+                            Custom Location
+                          </span>
+                        )}
+                      </div>
+                      <input
+                        type="text"
+                        value={aiConfig.tts_models_dir ?? defaultStoragePaths?.default_tts_dir ?? ''}
+                        placeholder={defaultStoragePaths?.default_tts_dir || 'Default: AppData/tts_models'}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setAiConfig((prev) => ({ ...prev, tts_models_dir: val.trim() ? val : undefined }));
+                        }}
+                        onBlur={async () => {
+                          await aiAgentService.saveSettings(aiConfig);
+                          void refreshTTSModels(aiConfig.tts_models_dir);
+                        }}
+                        className="w-full bg-surface border border-outline-variant/30 rounded-lg px-3 py-1.5 text-[12px] font-mono text-on-surface focus:outline-none focus:border-primary truncate"
+                        title={aiConfig.tts_models_dir ?? defaultStoragePaths?.default_tts_dir ?? ''}
+                      />
+                      <p className="text-[11px] text-on-surface-variant/80 mt-1">
+                        Location on disk where Kokoro and Piper neural voice ONNX models are downloaded and loaded.
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0 pt-1 sm:pt-0 self-end sm:self-center">
+                      <button
+                        type="button"
+                        onClick={() => handlePickFolder('tts')}
+                        className="px-3 py-1.5 text-[12px] font-semibold rounded-lg bg-surface border border-outline-variant/30 text-on-surface hover:bg-surface-container transition-colors flex items-center gap-1.5 shadow-sm"
+                        title="Browse for folder..."
+                      >
+                        <span className="material-symbols-outlined text-[16px] text-primary">folder_open</span>
+                        Browse...
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          handleOpenDirectory(
+                            aiConfig.tts_models_dir || defaultStoragePaths?.default_tts_dir || ''
+                          )
+                        }
+                        className="p-1.5 text-[12px] font-medium rounded-lg bg-surface border border-outline-variant/30 text-on-surface hover:bg-surface-container transition-colors shadow-sm"
+                        title="Open in File Explorer"
+                      >
+                        <span className="material-symbols-outlined text-[16px]">launch</span>
+                      </button>
+                      {aiConfig.tts_models_dir && (
+                        <button
+                          type="button"
+                          onClick={() => handleResetFolder('tts')}
+                          className="px-2.5 py-1.5 text-[11px] font-medium rounded-lg bg-surface border border-outline-variant/30 text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-colors"
+                          title="Reset to default directory"
+                        >
+                          Reset
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
                   {/* TTS Voice Cards with Sizes, Working Downloads & Text Wrapping */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
                     {LOCAL_NEURAL_VOICES.map((v) => {
@@ -1260,18 +1464,8 @@ export function SettingsPage() {
                                   setModelDownloadStatus((prev) => ({ ...prev, [v.id]: 'downloading' }));
                                   toast.info(`Downloading ${v.name} model (${v.sizeMb})...`);
                                   try {
-                                    await speechService.downloadLocalModel(v.id);
-                                    if (v.engine === 'kokoro') {
-                                      setModelDownloadStatus((prev) => {
-                                        const next = { ...prev };
-                                        LOCAL_NEURAL_VOICES.filter((vo) => vo.engine === 'kokoro').forEach((vo) => {
-                                          next[vo.id] = 'downloaded';
-                                        });
-                                        return next;
-                                      });
-                                    } else {
-                                      setModelDownloadStatus((prev) => ({ ...prev, [v.id]: 'downloaded' }));
-                                    }
+                                    await speechService.downloadLocalModel(v.id, aiConfig.tts_models_dir);
+                                    await refreshTTSModels(aiConfig.tts_models_dir);
                                     setAiConfig((prev) => ({ ...prev, tts_voice_id: v.id }));
                                     toast.success(`${v.name} downloaded successfully!`);
                                   } catch (err) {

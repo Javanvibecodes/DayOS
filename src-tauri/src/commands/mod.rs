@@ -9,11 +9,131 @@ use crate::integrations::types::{
 };
 use tauri::{Manager, AppHandle};
 
+fn resolve_tts_dir(app: &AppHandle, custom_dir: Option<String>) -> Result<std::path::PathBuf, String> {
+    if let Some(custom) = custom_dir.filter(|s| !s.trim().is_empty()) {
+        let p = std::path::PathBuf::from(custom.trim());
+        let _ = std::fs::create_dir_all(&p);
+        Ok(p)
+    } else {
+        let app_data = app.path().app_data_dir().map_err(|e| e.to_string())?;
+        let p = app_data.join("tts_models");
+        let _ = std::fs::create_dir_all(&p);
+        Ok(p)
+    }
+}
+
+#[derive(serde::Serialize)]
+pub struct ModelStoragePaths {
+    pub default_ollama_dir: String,
+    pub default_tts_dir: String,
+}
+
 #[tauri::command]
-pub fn tts_speak_local(app: AppHandle, text: String, voice_id: String) -> Result<(), String> {
-    // Get app data directory for models
+pub fn get_model_storage_paths(app: AppHandle) -> Result<ModelStoragePaths, String> {
     let app_data = app.path().app_data_dir().map_err(|e| e.to_string())?;
-    let models_dir = app_data.join("tts_models");
+    let default_tts_dir = app_data.join("tts_models").to_string_lossy().to_string();
+
+    #[cfg(target_os = "windows")]
+    let default_ollama_dir = std::env::var("OLLAMA_MODELS")
+        .or_else(|_| {
+            std::env::var("USERPROFILE")
+                .map(|u| format!("{}\\.ollama\\models", u))
+        })
+        .unwrap_or_else(|_| "C:\\Users\\Default\\.ollama\\models".to_string());
+
+    #[cfg(not(target_os = "windows"))]
+    let default_ollama_dir = std::env::var("OLLAMA_MODELS")
+        .or_else(|_| {
+            std::env::var("HOME")
+                .map(|h| format!("{}/.ollama/models", h))
+        })
+        .unwrap_or_else(|_| "~/.ollama/models".to_string());
+
+    Ok(ModelStoragePaths {
+        default_ollama_dir,
+        default_tts_dir,
+    })
+}
+
+#[tauri::command]
+pub fn open_directory(path: String) -> Result<(), String> {
+    let p = std::path::PathBuf::from(&path);
+    let _ = std::fs::create_dir_all(&p);
+
+    #[cfg(target_os = "windows")]
+    {
+        std::process::Command::new("explorer")
+            .arg(&path)
+            .spawn()
+            .map_err(|e| e.to_string())?;
+    }
+    #[cfg(target_os = "macos")]
+    {
+        std::process::Command::new("open")
+            .arg(&path)
+            .spawn()
+            .map_err(|e| e.to_string())?;
+    }
+    #[cfg(target_os = "linux")]
+    {
+        std::process::Command::new("xdg-open")
+            .arg(&path)
+            .spawn()
+            .map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn pick_folder(default_path: Option<String>) -> Result<Option<String>, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        #[cfg(target_os = "windows")]
+        {
+            use std::process::Command;
+            let initial = default_path.unwrap_or_default();
+            let script = format!(
+                r#"
+                Add-Type -AssemblyName System.Windows.Forms
+                $dialog = New-Object System.Windows.Forms.FolderBrowserDialog
+                $dialog.Description = 'Select Model Download Location'
+                $dialog.ShowNewFolderButton = $true
+                if ('{}' -ne '') {{ $dialog.SelectedPath = '{}' }}
+                if ($dialog.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {{
+                    [Console]::Write($dialog.SelectedPath)
+                }}
+                "#,
+                initial.replace('\'', "''"),
+                initial.replace('\'', "''")
+            );
+            let output = Command::new("powershell")
+                .args(["-NoProfile", "-Command", &script])
+                .output()
+                .map_err(|e| e.to_string())?;
+
+            let path = String::from_utf8_lossy(&output.stdout).trim().to_string();
+            if path.is_empty() {
+                Ok(None)
+            } else {
+                Ok(Some(path))
+            }
+        }
+        #[cfg(not(target_os = "windows"))]
+        {
+            Ok(default_path)
+        }
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+pub fn tts_speak_local(
+    app: AppHandle,
+    text: String,
+    voice_id: String,
+    custom_dir: Option<String>,
+) -> Result<(), String> {
+    let models_dir = resolve_tts_dir(&app, custom_dir)?;
     
     // Map voice_id to Piper voice model
     let (model_file, config_file) = match voice_id.as_str() {
@@ -84,14 +204,16 @@ pub fn tts_speak_local(app: AppHandle, text: String, voice_id: String) -> Result
 }
 
 #[tauri::command]
-pub async fn tts_download_model(app: AppHandle, voice_id: String) -> Result<String, String> {
+pub async fn tts_download_model(
+    app: AppHandle,
+    voice_id: String,
+    custom_dir: Option<String>,
+) -> Result<String, String> {
     if voice_id == "system-natural" {
         return Ok("System natural voice is built-in and already available".to_string());
     }
 
-    let app_data = app.path().app_data_dir().map_err(|e| e.to_string())?;
-    let models_dir = app_data.join("tts_models");
-    std::fs::create_dir_all(&models_dir).map_err(|e| e.to_string())?;
+    let models_dir = resolve_tts_dir(&app, custom_dir)?;
     
     let (model_url, config_url, model_file, config_file) = match voice_id.as_str() {
         "piper-lessac" => (
@@ -138,13 +260,16 @@ pub async fn tts_download_model(app: AppHandle, voice_id: String) -> Result<Stri
 }
 
 #[tauri::command]
-pub fn tts_check_model(app: AppHandle, voice_id: String) -> Result<bool, String> {
+pub fn tts_check_model(
+    app: AppHandle,
+    voice_id: String,
+    custom_dir: Option<String>,
+) -> Result<bool, String> {
     if voice_id == "system-natural" {
         return Ok(true);
     }
 
-    let app_data = app.path().app_data_dir().map_err(|e| e.to_string())?;
-    let models_dir = app_data.join("tts_models");
+    let models_dir = resolve_tts_dir(&app, custom_dir)?;
     
     let model_file = match voice_id.as_str() {
         "piper-lessac" => "en_US-lessac-medium.onnx",
@@ -157,9 +282,11 @@ pub fn tts_check_model(app: AppHandle, voice_id: String) -> Result<bool, String>
 }
 
 #[tauri::command]
-pub fn tts_list_downloaded(app: AppHandle) -> Result<Vec<String>, String> {
-    let app_data = app.path().app_data_dir().map_err(|e| e.to_string())?;
-    let models_dir = app_data.join("tts_models");
+pub fn tts_list_downloaded(
+    app: AppHandle,
+    custom_dir: Option<String>,
+) -> Result<Vec<String>, String> {
+    let models_dir = resolve_tts_dir(&app, custom_dir)?;
     
     if !models_dir.exists() {
         return Ok(vec![]);
@@ -535,7 +662,10 @@ pub struct OllamaProcessState {
 }
 
 #[tauri::command]
-pub fn start_ollama(state: State<'_, OllamaProcessState>) -> Result<bool, String> {
+pub fn start_ollama(
+    state: State<'_, OllamaProcessState>,
+    custom_dir: Option<String>,
+) -> Result<bool, String> {
     let mut lock = state.child.lock().map_err(|e| e.to_string())?;
     if lock.is_some() {
         return Ok(true);
@@ -543,6 +673,11 @@ pub fn start_ollama(state: State<'_, OllamaProcessState>) -> Result<bool, String
 
     let mut cmd = std::process::Command::new("ollama");
     cmd.arg("serve");
+    if let Some(dir) = custom_dir.filter(|s| !s.trim().is_empty()) {
+        let p = std::path::PathBuf::from(dir.trim());
+        let _ = std::fs::create_dir_all(&p);
+        cmd.env("OLLAMA_MODELS", dir.trim());
+    }
     #[cfg(target_os = "windows")]
     {
         use std::os::windows::process::CommandExt;
