@@ -585,6 +585,15 @@ export interface UpdateExternalMeetingRequest {
 // AI Agent types
 export type AIModelProvider = 'ollama' | 'openai' | 'gemini' | 'anthropic' | 'deepseek' | 'openrouter';
 
+export interface SystemHardwareSpecs {
+  total_ram_gb: number;
+  available_ram_gb: number;
+  total_storage_gb: number;
+  available_storage_gb: number;
+  recommended_model_tag: string;
+  recommendation_reason: string;
+}
+
 export interface AISettings {
   provider: AIModelProvider;
   model_name: string;

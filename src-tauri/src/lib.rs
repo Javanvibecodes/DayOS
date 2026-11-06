@@ -104,6 +104,7 @@ pub fn run() {
             commands::stop_ollama,
             commands::ollama_pull_model,
             commands::get_model_storage_paths,
+            commands::get_system_specs,
             commands::open_directory,
             commands::pick_folder,
             commands::tts_speak_local,

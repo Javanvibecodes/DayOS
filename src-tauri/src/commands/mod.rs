@@ -22,6 +22,160 @@ fn resolve_tts_dir(app: &AppHandle, custom_dir: Option<String>) -> Result<std::p
     }
 }
 
+#[derive(serde::Serialize, Clone, Debug)]
+pub struct SystemHardwareSpecs {
+    pub total_ram_gb: f64,
+    pub available_ram_gb: f64,
+    pub total_storage_gb: f64,
+    pub available_storage_gb: f64,
+    pub recommended_model_tag: String,
+    pub recommendation_reason: String,
+}
+
+fn compute_model_recommendation(
+    total_ram_gb: f64,
+    avail_ram_gb: f64,
+    avail_storage_gb: f64,
+) -> (String, String) {
+    if avail_storage_gb < 3.5 {
+        return (
+            "llama3.2".to_string(),
+            format!(
+                "Storage is very low ({:.1} GB free). Llama 3.2 (3B) requires ~2.0 GB of disk space.",
+                avail_storage_gb
+            ),
+        );
+    }
+
+    if total_ram_gb >= 15.0 && avail_storage_gb >= 8.0 {
+        if avail_ram_gb >= 5.5 {
+            (
+                "qwen2.5".to_string(),
+                format!(
+                    "Optimal match for your hardware ({:.0} GB RAM, {:.1} GB free storage). Qwen 2.5 (7B) provides top-tier reasoning and coding assistance with zero lag.",
+                    total_ram_gb.round(),
+                    avail_storage_gb
+                ),
+            )
+        } else {
+            (
+                "llama3.2".to_string(),
+                format!(
+                    "Your device has {:.0} GB RAM, but only {:.1} GB is currently free. Llama 3.2 (3B) is recommended to prevent memory swapping.",
+                    total_ram_gb.round(),
+                    avail_ram_gb
+                ),
+            )
+        }
+    } else if total_ram_gb >= 7.5 && avail_storage_gb >= 6.0 {
+        if avail_ram_gb >= 3.5 {
+            (
+                "qwen2.5".to_string(),
+                format!(
+                    "Good match ({:.0} GB RAM, {:.1} GB free storage). Qwen 2.5 (7B) gives you maximum accuracy while fitting comfortably in available memory.",
+                    total_ram_gb.round(),
+                    avail_storage_gb
+                ),
+            )
+        } else {
+            (
+                "llama3.2".to_string(),
+                format!(
+                    "Recommended for smooth performance ({:.0} GB RAM): Llama 3.2 (3B) is lightweight and will run snappily with your {:.1} GB currently free RAM.",
+                    total_ram_gb.round(),
+                    avail_ram_gb
+                ),
+            )
+        }
+    } else {
+        (
+            "llama3.2".to_string(),
+            format!(
+                "Recommended for compact hardware ({:.0} GB RAM): Llama 3.2 (3B) is ultra-responsive, requires only ~2 GB disk, and runs smoothly on 4GB-8GB systems.",
+                total_ram_gb.round()
+            ),
+        )
+    }
+}
+
+#[tauri::command]
+pub fn get_system_specs(target_path: Option<String>) -> Result<SystemHardwareSpecs, String> {
+    #[cfg(target_os = "windows")]
+    {
+        use windows_sys::Win32::System::SystemInformation::{GlobalMemoryStatusEx, MEMORYSTATUSEX};
+        use windows_sys::Win32::Storage::FileSystem::GetDiskFreeSpaceExW;
+        use std::os::windows::ffi::OsStrExt;
+        use std::ffi::OsStr;
+
+        let (total_ram_gb, avail_ram_gb) = unsafe {
+            let mut mem: MEMORYSTATUSEX = std::mem::zeroed();
+            mem.dwLength = std::mem::size_of::<MEMORYSTATUSEX>() as u32;
+            if GlobalMemoryStatusEx(&mut mem) != 0 {
+                let total = (mem.ullTotalPhys as f64) / (1024.0 * 1024.0 * 1024.0);
+                let avail = (mem.ullAvailPhys as f64) / (1024.0 * 1024.0 * 1024.0);
+                (total, avail)
+            } else {
+                (16.0, 8.0)
+            }
+        };
+
+        let path_to_probe = target_path.as_deref().unwrap_or("C:\\");
+        let wide: Vec<u16> = OsStr::new(path_to_probe).encode_wide().chain(Some(0)).collect();
+
+        let (total_storage_gb, avail_storage_gb) = unsafe {
+            let mut free_avail: u64 = 0;
+            let mut total_bytes: u64 = 0;
+            let mut total_free: u64 = 0;
+
+            if GetDiskFreeSpaceExW(wide.as_ptr(), &mut free_avail, &mut total_bytes, &mut total_free) != 0 {
+                let total = (total_bytes as f64) / (1024.0 * 1024.0 * 1024.0);
+                let avail = (free_avail as f64) / (1024.0 * 1024.0 * 1024.0);
+                (total, avail)
+            } else {
+                let root_wide: Vec<u16> = OsStr::new("C:\\").encode_wide().chain(Some(0)).collect();
+                if GetDiskFreeSpaceExW(root_wide.as_ptr(), &mut free_avail, &mut total_bytes, &mut total_free) != 0 {
+                    let total = (total_bytes as f64) / (1024.0 * 1024.0 * 1024.0);
+                    let avail = (free_avail as f64) / (1024.0 * 1024.0 * 1024.0);
+                    (total, avail)
+                } else {
+                    (256.0, 50.0)
+                }
+            }
+        };
+
+        let (recommended_model_tag, recommendation_reason) =
+            compute_model_recommendation(total_ram_gb, avail_ram_gb, avail_storage_gb);
+
+        Ok(SystemHardwareSpecs {
+            total_ram_gb: (total_ram_gb * 10.0).round() / 10.0,
+            available_ram_gb: (avail_ram_gb * 10.0).round() / 10.0,
+            total_storage_gb: (total_storage_gb * 10.0).round() / 10.0,
+            available_storage_gb: (avail_storage_gb * 10.0).round() / 10.0,
+            recommended_model_tag,
+            recommendation_reason,
+        })
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        let total_ram_gb = 16.0;
+        let avail_ram_gb = 8.0;
+        let total_storage_gb = 256.0;
+        let avail_storage_gb = 60.0;
+        let (recommended_model_tag, recommendation_reason) =
+            compute_model_recommendation(total_ram_gb, avail_ram_gb, avail_storage_gb);
+
+        Ok(SystemHardwareSpecs {
+            total_ram_gb,
+            available_ram_gb,
+            total_storage_gb,
+            available_storage_gb,
+            recommended_model_tag,
+            recommendation_reason,
+        })
+    }
+}
+
 #[derive(serde::Serialize)]
 pub struct ModelStoragePaths {
     pub default_ollama_dir: String,

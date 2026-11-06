@@ -102,6 +102,7 @@ export interface ModelRecommendation {
   tag: string;
   sizeGb: string;
   minRamGb: number;
+  minStorageGb?: number;
   smoothness: 'Ultra-Fast' | 'Smooth' | 'Balanced';
   stars: number;
   description: string;
@@ -114,6 +115,7 @@ export const MODEL_RECOMMENDATIONS: ModelRecommendation[] = [
     tag: 'llama3.2',
     sizeGb: '2.0 GB',
     minRamGb: 4,
+    minStorageGb: 3,
     smoothness: 'Ultra-Fast',
     stars: 5,
     description: 'Ultra-responsive and lightweight. Runs smoothly on almost any modern laptop (4GB+ RAM, no GPU required).',
@@ -124,6 +126,7 @@ export const MODEL_RECOMMENDATIONS: ModelRecommendation[] = [
     tag: 'phi3.5',
     sizeGb: '2.2 GB',
     minRamGb: 4,
+    minStorageGb: 3.5,
     smoothness: 'Ultra-Fast',
     stars: 5,
     description: "Microsoft's highly efficient compact model. Excellent at task planning, logic, and rapid drafting.",
@@ -134,6 +137,7 @@ export const MODEL_RECOMMENDATIONS: ModelRecommendation[] = [
     tag: 'qwen2.5',
     sizeGb: '4.7 GB',
     minRamGb: 8,
+    minStorageGb: 6.5,
     smoothness: 'Balanced',
     stars: 4,
     description: 'Top-tier accuracy for scheduling, complex reasoning, and coding assistance. Recommended for 8GB+ RAM.',
@@ -144,6 +148,7 @@ export const MODEL_RECOMMENDATIONS: ModelRecommendation[] = [
     tag: 'mistral',
     sizeGb: '4.1 GB',
     minRamGb: 8,
+    minStorageGb: 6,
     smoothness: 'Smooth',
     stars: 4,
     description: 'Renowned general-purpose model with rich reasoning and polite conversational skills for 8GB+ RAM.',

@@ -34,6 +34,7 @@ import type {
   ConnectorState,
   IntegrationStatuses,
   ProviderConnectionStatus,
+  SystemHardwareSpecs,
 } from '@/types';
 
 type SettingsTab =
@@ -54,7 +55,7 @@ async function syncAutostart(enabled: boolean) {
     if (enabled && !current) await autostartEnable();
     if (!enabled && current) await autostartDisable();
   } catch {
-    // Browser dev without Tauri — ignore
+    // Browser dev without Tauri â€” ignore
   }
 }
 
@@ -79,9 +80,9 @@ async function ensureNotifPermission(): Promise<boolean> {
 const CONNECTOR_STATUS_LABELS: Record<ConnectorState, string> = {
   not_connected: 'Not connected',
   needs_authorization: 'Needs authorization',
-  connecting: 'Connecting…',
+  connecting: 'Connectingâ€¦',
   connected: 'Connected',
-  syncing: 'Syncing…',
+  syncing: 'Syncingâ€¦',
   auth_expired: 'Authorization expired',
   error: 'Error',
 };
@@ -162,7 +163,7 @@ function TunePicker({
         {!soundEnabled && (
           <p className="text-[11px] text-on-surface-variant/70 flex items-center gap-[6px] mt-[6px]">
             <span className="material-symbols-outlined text-[14px]">info</span>
-            Master sound is off — selection still saves; enable Notification Sound to hear alerts.
+            Master sound is off â€” selection still saves; enable Notification Sound to hear alerts.
           </p>
         )}
       </div>
@@ -276,6 +277,50 @@ export function SettingsPage() {
     default_ollama_dir: string;
     default_tts_dir: string;
   } | null>(null);
+  const [hardwareSpecs, setHardwareSpecs] = useState<SystemHardwareSpecs | null>(null);
+
+  const refreshHardwareSpecs = useCallback(async (customPath?: string) => {
+    try {
+      const specs = await invoke<SystemHardwareSpecs>('get_system_specs', {
+        targetPath: customPath || undefined,
+      });
+      setHardwareSpecs(specs);
+    } catch (err) {
+      console.warn('Failed to retrieve hardware specs:', err);
+    }
+  }, []);
+
+  const handleDownloadOllamaModel = async (tag: string, name: string, sizeGb?: string) => {
+    setOllamaDownloadStatus((prev) => ({
+      ...prev,
+      [tag]: { status: 'downloading', progress: 0 },
+    }));
+    toast.info(`Starting download for ${name}${sizeGb ? ` (${sizeGb})` : ''}...`);
+    try {
+      await ollamaService.pullModel(tag, (pct) => {
+        setOllamaDownloadStatus((prev) => ({
+          ...prev,
+          [tag]: { status: 'downloading', progress: pct },
+        }));
+      });
+      setOllamaDownloadStatus((prev) => ({
+        ...prev,
+        [tag]: { status: 'installed' },
+      }));
+      const updatedModels = await ollamaService.getInstalledModels();
+      setInstalledOllamaModels(updatedModels);
+      const updatedAi = { ...aiConfig, provider: 'ollama' as const, model_name: tag };
+      setAiConfig(updatedAi);
+      await aiAgentService.saveSettings(updatedAi);
+      toast.success(`${name} downloaded & set as active model!`);
+    } catch (err) {
+      setOllamaDownloadStatus((prev) => ({
+        ...prev,
+        [tag]: { status: 'idle' },
+      }));
+      toast.error(`Download failed: ${String(err)}`);
+    }
+  };
 
   const refreshTTSModels = useCallback(async (customDir?: string) => {
     try {
@@ -313,6 +358,7 @@ export function SettingsPage() {
           const updated = { ...aiConfig, ollama_models_dir: selected };
           setAiConfig(updated);
           await aiAgentService.saveSettings(updated);
+          void refreshHardwareSpecs(selected);
           toast.success('Ollama model directory updated');
         } else {
           const updated = { ...aiConfig, tts_models_dir: selected };
@@ -341,6 +387,7 @@ export function SettingsPage() {
       const updated = { ...aiConfig, ollama_models_dir: undefined };
       setAiConfig(updated);
       await aiAgentService.saveSettings(updated);
+      void refreshHardwareSpecs(undefined);
       toast.success('Ollama directory reset to default');
     } else {
       const updated = { ...aiConfig, tts_models_dir: undefined };
@@ -360,6 +407,10 @@ export function SettingsPage() {
   useEffect(() => {
     void refreshTTSModels();
   }, [refreshTTSModels]);
+
+  useEffect(() => {
+    void refreshHardwareSpecs();
+  }, [refreshHardwareSpecs]);
 
   useEffect(() => {
     const checkOllama = async () => {
@@ -429,12 +480,13 @@ export function SettingsPage() {
     aiAgentService.getSettings().then((cfg) => {
       setAiConfig(cfg);
       void refreshTTSModels(cfg.tts_models_dir);
+      void refreshHardwareSpecs(cfg.ollama_models_dir);
     });
     meetingIntegrationService
       .getStatuses()
       .then(setIntegrationStatuses)
       .catch(() => setIntegrationStatuses(null));
-  }, [initDevice, refreshTTSModels]);
+  }, [initDevice, refreshTTSModels, refreshHardwareSpecs]);
 
   const refreshIntegrationStatuses = async () => {
     try {
@@ -515,10 +567,10 @@ export function SettingsPage() {
       if (sys === enabled) {
         toast.success(enabled ? 'DayOS will start with Windows' : 'Windows startup disabled');
       } else {
-        toast.error('Could not update Windows startup — change it in Task Manager');
+        toast.error('Could not update Windows startup â€” change it in Task Manager');
       }
     } catch {
-      toast.error('Could not update Windows startup — change it in Task Manager');
+      toast.error('Could not update Windows startup â€” change it in Task Manager');
     }
   };
 
@@ -537,7 +589,7 @@ export function SettingsPage() {
           sendNotification({ title: 'DayOS', body: 'Desktop notifications are on.' });
         } catch { /* ignore */ }
       } else {
-        toast.error('Notification permission denied — allow it in Windows settings');
+        toast.error('Notification permission denied â€” allow it in Windows settings');
       }
     } else {
       toast.success('Desktop notifications disabled');
@@ -566,7 +618,7 @@ export function SettingsPage() {
     // Preview always plays (user-initiated); master toggle only gates live alerts
     playTune(id);
     if (!settings.soundEnabled) {
-      toast.info('Previewing sound — Notification Sound is currently off');
+      toast.info('Previewing sound â€” Notification Sound is currently off');
     }
   };
 
@@ -626,7 +678,7 @@ export function SettingsPage() {
       </div>
 
       <div className="flex flex-col lg:flex-row gap-[32px]">
-        {/* Navigation Sidebar — left-aligned, shared left margin */}
+        {/* Navigation Sidebar â€” left-aligned, shared left margin */}
         <nav className="w-full lg:w-56 flex flex-row lg:flex-col gap-[10px] overflow-x-auto lg:overflow-visible pb-[8px] lg:pb-0 shrink-0 border-b lg:border-b-0 lg:border-r border-outline-variant/20 pr-0 lg:pr-[24px]">
           {tabs.map((tab) => (
             <button
@@ -655,7 +707,7 @@ export function SettingsPage() {
                     <span className="material-symbols-outlined text-primary">person</span> Profile
                   </h3>
                   <p className="text-[14px] text-on-surface-variant">
-                    Used in greetings like “Good morning” and your avatar initial.
+                    Used in greetings like â€œGood morningâ€ and your avatar initial.
                   </p>
                 </div>
                 <div className="flex flex-col gap-[8px]">
@@ -675,9 +727,9 @@ export function SettingsPage() {
                     className="w-full bg-surface-container-low border border-outline-variant/30 rounded-lg px-[12px] py-[10px] text-[14px] text-on-surface placeholder:text-on-surface-variant/50 focus:outline-none focus:border-primary"
                   />
                   <p className="text-[11px] text-on-surface-variant/70">
-                    Leave empty to use “User” in greetings.
+                    Leave empty to use â€œUserâ€ in greetings.
                     {settings.displayName.trim()
-                      ? ` Preview: “Good morning, ${settings.displayName.trim()}”`
+                      ? ` Preview: â€œGood morning, ${settings.displayName.trim()}â€`
                       : ''}
                   </p>
                 </div>
@@ -695,8 +747,8 @@ export function SettingsPage() {
                         {systemAutostart === null
                           ? 'Syncs with Windows Startup apps'
                           : systemAutostart
-                            ? 'Windows Startup: ON — DayOS launches at sign-in'
-                            : 'Windows Startup: OFF — DayOS does not launch at sign-in'}
+                            ? 'Windows Startup: ON â€” DayOS launches at sign-in'
+                            : 'Windows Startup: OFF â€” DayOS does not launch at sign-in'}
                       </p>
                     </div>
                     <input
@@ -1063,7 +1115,7 @@ export function SettingsPage() {
                             : 'bg-primary text-on-primary hover:bg-primary/90'
                         }`}
                       >
-                        {aiConfig.provider === 'ollama' ? '✓ Currently Using Local AI' : 'Switch to Local AI'}
+                        {aiConfig.provider === 'ollama' ? 'âœ“ Currently Using Local AI' : 'Switch to Local AI'}
                       </button>
                     </div>
                   ) : (
@@ -1155,6 +1207,95 @@ export function SettingsPage() {
                     </div>
                   </div>
 
+                  {/* Hardware Telemetry & Smart Model Recommendation Banner */}
+                  {hardwareSpecs && (
+                    <div className="p-4 rounded-xl bg-gradient-to-r from-primary/10 via-surface-container-low to-secondary/10 border border-primary/30 space-y-3 shadow-sm">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2.5 border-b border-outline-variant/20">
+                        <div className="flex items-center gap-2">
+                          <span className="material-symbols-outlined text-primary text-[20px]">memory</span>
+                          <h5 className="text-[13px] font-bold text-on-surface">
+                            Hardware Analysis & Smart Recommendation
+                          </h5>
+                        </div>
+                        <div className="flex items-center gap-2 text-[11px] font-mono flex-wrap">
+                          <span className="flex items-center gap-1.5 px-2.5 py-0.5 rounded bg-surface border border-outline-variant/30 text-on-surface">
+                            <span className="material-symbols-outlined text-[13px] text-primary">developer_board</span>
+                            RAM: <b>{hardwareSpecs.total_ram_gb} GB</b> ({hardwareSpecs.available_ram_gb} GB free)
+                          </span>
+                          <span className="flex items-center gap-1.5 px-2.5 py-0.5 rounded bg-surface border border-outline-variant/30 text-on-surface">
+                            <span className="material-symbols-outlined text-[13px] text-secondary">hard_drive</span>
+                            Storage: <b>{hardwareSpecs.available_storage_gb} GB free</b>
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                        <div className="space-y-1 max-w-xl">
+                          <div className="flex items-center gap-2">
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-primary px-1.5 py-0.5 rounded bg-primary/15 border border-primary/25">
+                              ★ Recommended for your device
+                            </span>
+                            <span className="text-[13px] font-bold text-on-surface">
+                              {MODEL_RECOMMENDATIONS.find((m) => m.tag === hardwareSpecs.recommended_model_tag)?.name || hardwareSpecs.recommended_model_tag}
+                            </span>
+                          </div>
+                          <p className="text-[12px] text-on-surface-variant leading-relaxed">
+                            {hardwareSpecs.recommendation_reason}
+                          </p>
+                        </div>
+
+                        {(() => {
+                          const recModel = MODEL_RECOMMENDATIONS.find((m) => m.tag === hardwareSpecs.recommended_model_tag);
+                          if (!recModel) return null;
+                          const isInstalled = installedOllamaModels.some(
+                            (m) => m === recModel.tag || m.startsWith(`${recModel.tag}:`) || recModel.tag.startsWith(m.split(':')[0])
+                          );
+                          const isDownloading = ollamaDownloadStatus[recModel.tag]?.status === 'downloading';
+                          const isCurrentActive = aiConfig.provider === 'ollama' && (aiConfig.model_name === recModel.tag || aiConfig.model_name.startsWith(recModel.tag));
+
+                          if (isCurrentActive) {
+                            return (
+                              <span className="px-3.5 py-2 text-xs font-semibold rounded-lg bg-emerald-500/15 text-emerald-500 border border-emerald-500/30 flex items-center gap-1.5 shrink-0 self-start sm:self-center shadow-sm">
+                                <span className="material-symbols-outlined text-[16px]">check_circle</span>
+                                Active Best Match
+                              </span>
+                            );
+                          }
+
+                          if (isInstalled) {
+                            return (
+                              <button
+                                type="button"
+                                onClick={async () => {
+                                  const updated = { ...aiConfig, provider: 'ollama' as const, model_name: recModel.tag };
+                                  setAiConfig(updated);
+                                  await aiAgentService.saveSettings(updated);
+                                  toast.success(`Switched to recommended model ${recModel.name}`);
+                                }}
+                                className="px-3.5 py-2 text-xs font-semibold rounded-lg bg-primary text-on-primary hover:bg-primary/90 transition-colors shrink-0 self-start sm:self-center shadow-sm flex items-center gap-1.5"
+                              >
+                                <span className="material-symbols-outlined text-[16px]">bolt</span>
+                                Use Best Match
+                              </button>
+                            );
+                          }
+
+                          return (
+                            <button
+                              type="button"
+                              disabled={isDownloading}
+                              onClick={() => handleDownloadOllamaModel(recModel.tag, recModel.name, recModel.sizeGb)}
+                              className="px-3.5 py-2 text-xs font-semibold rounded-lg bg-primary text-on-primary hover:bg-primary/90 transition-colors shrink-0 self-start sm:self-center shadow-sm flex items-center gap-1.5 disabled:opacity-60"
+                            >
+                              <span className="material-symbols-outlined text-[16px]">download</span>
+                              Download Best Match ({recModel.sizeGb})
+                            </button>
+                          );
+                        })()}
+                      </div>
+                    </div>
+                  )}
+
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
                     {MODEL_RECOMMENDATIONS.map((rec) => {
                       const isInstalled = installedOllamaModels.some(
@@ -1163,6 +1304,7 @@ export function SettingsPage() {
                       const isDownloading = ollamaDownloadStatus[rec.tag]?.status === 'downloading';
                       const downloadProgress = ollamaDownloadStatus[rec.tag]?.progress;
                       const isCurrentActive = aiConfig.provider === 'ollama' && (aiConfig.model_name === rec.tag || aiConfig.model_name.startsWith(rec.tag));
+                      const isBestMatch = hardwareSpecs?.recommended_model_tag === rec.tag;
 
                       return (
                         <div
@@ -1170,13 +1312,23 @@ export function SettingsPage() {
                           className={`p-4 rounded-xl border flex flex-col justify-between transition-all ${
                             isCurrentActive
                               ? 'border-primary/50 bg-primary/5 ring-1 ring-primary/25'
+                              : isBestMatch
+                              ? 'border-primary/40 bg-surface-container-low ring-1 ring-primary/20 shadow-sm'
                               : 'border-outline-variant/20 bg-surface-container-low hover:border-outline-variant/40'
                           }`}
                         >
                           <div className="space-y-2 mb-3">
                             <div className="flex items-start justify-between gap-2">
                               <div>
-                                <h5 className="text-[14px] font-bold text-on-surface">{rec.name}</h5>
+                                <div className="flex items-center gap-2">
+                                  <h5 className="text-[14px] font-bold text-on-surface">{rec.name}</h5>
+                                  {isBestMatch && (
+                                    <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-primary text-on-primary flex items-center gap-0.5 shadow-sm">
+                                      <span className="material-symbols-outlined text-[11px]">star</span>
+                                      Best Match
+                                    </span>
+                                  )}
+                                </div>
                                 <span className="text-[11px] font-mono text-on-surface-variant">{rec.tag}</span>
                               </div>
                               <div className="flex items-center gap-1.5 shrink-0">
@@ -1191,6 +1343,28 @@ export function SettingsPage() {
                             <p className="text-[12px] text-on-surface-variant whitespace-normal break-words leading-relaxed">
                               {rec.description}
                             </p>
+
+                            {/* Hardware Compatibility Tag */}
+                            {hardwareSpecs && (
+                              <div className="pt-1 flex items-center gap-1.5 flex-wrap">
+                                {hardwareSpecs.total_ram_gb < rec.minRamGb ? (
+                                  <span className="text-[10px] text-amber-500 font-medium flex items-center gap-1 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">
+                                    <span className="material-symbols-outlined text-[12px]">warning</span>
+                                    Requires {rec.minRamGb}GB+ RAM ({hardwareSpecs.total_ram_gb}GB detected)
+                                  </span>
+                                ) : rec.minStorageGb && hardwareSpecs.available_storage_gb < rec.minStorageGb ? (
+                                  <span className="text-[10px] text-amber-500 font-medium flex items-center gap-1 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">
+                                    <span className="material-symbols-outlined text-[12px]">warning</span>
+                                    Needs ~{rec.minStorageGb}GB free space ({hardwareSpecs.available_storage_gb}GB free)
+                                  </span>
+                                ) : (
+                                  <span className="text-[10px] text-emerald-500 font-medium flex items-center gap-1 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
+                                    <span className="material-symbols-outlined text-[12px]">verified</span>
+                                    Smooth on your {hardwareSpecs.total_ram_gb}GB RAM
+                                  </span>
+                                )}
+                              </div>
+                            )}
                           </div>
 
                           <div className="pt-2 border-t border-outline-variant/15 flex items-center justify-between gap-2">
@@ -1221,35 +1395,7 @@ export function SettingsPage() {
                               <button
                                 type="button"
                                 disabled={isDownloading}
-                                onClick={async () => {
-                                  setOllamaDownloadStatus((prev) => ({
-                                    ...prev,
-                                    [rec.tag]: { status: 'downloading', progress: 0 },
-                                  }));
-                                  toast.info(`Starting download for ${rec.name} (${rec.sizeGb})...`);
-                                  try {
-                                    await ollamaService.pullModel(rec.tag, (pct) => {
-                                      setOllamaDownloadStatus((prev) => ({
-                                        ...prev,
-                                        [rec.tag]: { status: 'downloading', progress: pct },
-                                      }));
-                                    });
-                                    setOllamaDownloadStatus((prev) => ({
-                                      ...prev,
-                                      [rec.tag]: { status: 'installed' },
-                                    }));
-                                    const updatedModels = await ollamaService.getInstalledModels();
-                                    setInstalledOllamaModels(updatedModels);
-                                    setAiConfig((prev) => ({ ...prev, provider: 'ollama', model_name: rec.tag }));
-                                    toast.success(`${rec.name} downloaded & set as active model!`);
-                                  } catch (err) {
-                                    setOllamaDownloadStatus((prev) => ({
-                                      ...prev,
-                                      [rec.tag]: { status: 'idle' },
-                                    }));
-                                    toast.error(`Download failed: ${String(err)}`);
-                                  }
-                                }}
+                                onClick={() => handleDownloadOllamaModel(rec.tag, rec.name, rec.sizeGb)}
                                 className="w-full py-2 px-3 text-xs font-semibold rounded-lg bg-primary text-on-primary hover:bg-primary/90 transition-colors disabled:opacity-60 flex items-center justify-center gap-1.5"
                               >
                                 {isDownloading ? (
@@ -1300,7 +1446,7 @@ export function SettingsPage() {
                       >
                         {LOCAL_NEURAL_VOICES.map((v) => (
                           <option key={v.id} value={v.id}>
-                            {v.name} ({v.accent}) • {v.sizeMb}
+                            {v.name} ({v.accent}) â€¢ {v.sizeMb}
                           </option>
                         ))}
                       </select>
@@ -1408,7 +1554,7 @@ export function SettingsPage() {
                               <div>
                                 <h5 className="text-[13px] font-bold text-on-surface">{v.name}</h5>
                                 <span className="text-[10px] uppercase tracking-wider font-semibold text-on-surface-variant">
-                                  {v.engine} • {v.gender} • {v.accent}
+                                  {v.engine} â€¢ {v.gender} â€¢ {v.accent}
                                 </span>
                               </div>
                               <span className="px-2 py-0.5 rounded text-[10px] font-mono font-semibold bg-primary/10 text-primary border border-primary/20 shrink-0">
@@ -1989,7 +2135,7 @@ export function SettingsPage() {
             </>
           )}
 
-          {/* Shortcuts Tab — hardcoded defaults, read-only */}
+          {/* Shortcuts Tab â€” hardcoded defaults, read-only */}
           {activeTab === 'shortcuts' && (
             <section className="bg-surface rounded-2xl border border-outline-variant/30 overflow-hidden shadow-sm">
               <div className="p-[28px] border-b border-outline-variant/20 bg-surface-container-low">
@@ -2051,7 +2197,7 @@ export function SettingsPage() {
                       if (e.key === 'Enter' && newCatName.trim()) {
                         void createCategory({ name: newCatName.trim(), color: newCatColor });
                         setNewCatName('');
-                        toast.success(`Category “${newCatName.trim()}” created`);
+                        toast.success(`Category â€œ${newCatName.trim()}â€ created`);
                       }
                     }}
                     placeholder="e.g. Work, Health, Learning"
@@ -2075,7 +2221,7 @@ export function SettingsPage() {
                     const name = newCatName.trim();
                     await createCategory({ name, color: newCatColor });
                     setNewCatName('');
-                    toast.success(`Category “${name}” created`);
+                    toast.success(`Category â€œ${name}â€ created`);
                   }}
                   className="px-[20px] py-[10px] bg-primary hover:bg-primary/90 text-on-primary text-[13px] font-semibold rounded-lg text-center"
                 >
@@ -2113,7 +2259,7 @@ export function SettingsPage() {
                                 const newName = editCatName.trim();
                                 await updateCategory(c.id, { name: newName, color: editCatColor });
                                 setEditingCatId(null);
-                                toast.success(`Category “${newName}” updated`);
+                                toast.success(`Category â€œ${newName}â€ updated`);
                               } else if (e.key === 'Escape') {
                                 setEditingCatId(null);
                               }
@@ -2130,7 +2276,7 @@ export function SettingsPage() {
                               const newName = editCatName.trim();
                               await updateCategory(c.id, { name: newName, color: editCatColor });
                               setEditingCatId(null);
-                              toast.success(`Category “${newName}” updated`);
+                              toast.success(`Category â€œ${newName}â€ updated`);
                             }}
                             className="px-[14px] py-[7px] bg-primary hover:bg-primary/90 text-on-primary text-[12px] font-semibold rounded-lg"
                           >
@@ -2173,7 +2319,7 @@ export function SettingsPage() {
                         <button
                           onClick={async () => {
                             await deleteCategory(c.id);
-                            toast.success(`Category “${c.name}” deleted`);
+                            toast.success(`Category â€œ${c.name}â€ deleted`);
                           }}
                           className="material-symbols-outlined text-[18px] text-on-surface-variant hover:text-error transition-colors"
                           title="Delete category"
