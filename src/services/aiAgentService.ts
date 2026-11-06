@@ -12,6 +12,7 @@ export interface NeuralVoice {
   gender: 'female' | 'male';
   accent: string;
   description: string;
+  sizeMb: string;
   pitch: number;
   rate: number;
 }
@@ -24,6 +25,7 @@ export const LOCAL_NEURAL_VOICES: NeuralVoice[] = [
     gender: 'female',
     accent: 'US English',
     description: 'Warm, expressive, natural conversational tone (Default)',
+    sizeMb: '82 MB',
     pitch: 1.05,
     rate: 1.0,
   },
@@ -34,6 +36,7 @@ export const LOCAL_NEURAL_VOICES: NeuralVoice[] = [
     gender: 'male',
     accent: 'US English',
     description: 'Crisp, articulate, professional presentation tone',
+    sizeMb: '82 MB',
     pitch: 0.95,
     rate: 1.02,
   },
@@ -44,6 +47,7 @@ export const LOCAL_NEURAL_VOICES: NeuralVoice[] = [
     gender: 'female',
     accent: 'British English',
     description: 'Refined, calm, studio audiobook narrator',
+    sizeMb: '82 MB',
     pitch: 1.02,
     rate: 0.98,
   },
@@ -54,6 +58,7 @@ export const LOCAL_NEURAL_VOICES: NeuralVoice[] = [
     gender: 'male',
     accent: 'British English',
     description: 'Deep, resonant, authoritative executive tone',
+    sizeMb: '82 MB',
     pitch: 0.9,
     rate: 0.96,
   },
@@ -64,6 +69,7 @@ export const LOCAL_NEURAL_VOICES: NeuralVoice[] = [
     gender: 'female',
     accent: 'US English',
     description: 'Natural, cheerful, daily focus guide',
+    sizeMb: '60 MB',
     pitch: 1.1,
     rate: 1.05,
   },
@@ -74,6 +80,7 @@ export const LOCAL_NEURAL_VOICES: NeuralVoice[] = [
     gender: 'male',
     accent: 'US English',
     description: 'Casual, friendly, energetic productivity partner',
+    sizeMb: '65 MB',
     pitch: 0.98,
     rate: 1.05,
   },
@@ -84,6 +91,7 @@ export const LOCAL_NEURAL_VOICES: NeuralVoice[] = [
     gender: 'female',
     accent: 'System Default',
     description: 'Built-in Windows system natural speech voice',
+    sizeMb: 'Built-in',
     pitch: 1.0,
     rate: 1.0,
   },
@@ -153,6 +161,7 @@ export const defaultAISettings: AISettings = {
   voice_pitch: 1.0,
   voice_rate: 1.0,
   tts_voice_id: 'kokoro-heart',
+  cloud_keys: {},
 };
 
 export const ollamaService = {
@@ -189,6 +198,61 @@ export const ollamaService = {
       return (data.models || []).map((m: any) => m.name || m.model);
     } catch {
       return [];
+    }
+  },
+
+  pullModel: async (
+    model: string,
+    onProgress?: (percent: number, status: string) => void
+  ): Promise<boolean> => {
+    await ollamaService.ensureRunning();
+    try {
+      const response = await fetch('http://localhost:11434/api/pull', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: model, stream: true }),
+      });
+
+      if (!response.ok || !response.body) {
+        await invoke('ollama_pull_model', { model });
+        return true;
+      }
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || '';
+
+        for (const line of lines) {
+          if (!line.trim()) continue;
+          try {
+            const data = JSON.parse(line);
+            if (data.total && data.completed) {
+              const pct = Math.round((data.completed / data.total) * 100);
+              onProgress?.(pct, data.status || 'downloading');
+            } else if (data.status) {
+              onProgress?.(0, data.status);
+            }
+          } catch {
+            // ignore partial json
+          }
+        }
+      }
+      return true;
+    } catch {
+      try {
+        await invoke('ollama_pull_model', { model });
+        return true;
+      } catch (err) {
+        throw new Error(String(err));
+      }
     }
   },
 
@@ -518,17 +582,26 @@ export const aiAgentService = {
       }
     }
 
-    // Cloud Providers (OpenAI, Gemini, OpenRouter)
-    if (settings.api_key) {
+    // Cloud Providers (OpenAI, Gemini, DeepSeek, OpenRouter)
+    const activeApiKey = settings.cloud_keys?.[settings.provider] || settings.api_key;
+    if (activeApiKey) {
       try {
         let apiUrl = 'https://api.openai.com/v1/chat/completions';
+        let defaultModel = 'gpt-4o-mini';
         let headers: Record<string, string> = {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${settings.api_key}`,
+          Authorization: `Bearer ${activeApiKey}`,
         };
 
         if (settings.provider === 'openrouter') {
           apiUrl = 'https://openrouter.ai/api/v1/chat/completions';
+          defaultModel = 'meta-llama/llama-3.2-3b-instruct:free';
+        } else if (settings.provider === 'deepseek') {
+          apiUrl = 'https://api.deepseek.com/chat/completions';
+          defaultModel = 'deepseek-chat';
+        } else if (settings.provider === 'gemini') {
+          apiUrl = 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions';
+          defaultModel = 'gemini-1.5-flash';
         }
 
         const messages = [
@@ -544,7 +617,7 @@ export const aiAgentService = {
           method: 'POST',
           headers,
           body: JSON.stringify({
-            model: settings.model_name || 'gpt-4o-mini',
+            model: settings.model_name || defaultModel,
             messages,
           }),
         });

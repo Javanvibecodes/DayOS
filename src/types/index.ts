@@ -583,7 +583,7 @@ export interface UpdateExternalMeetingRequest {
 }
 
 // AI Agent types
-export type AIModelProvider = 'ollama' | 'openai' | 'gemini' | 'anthropic' | 'openrouter';
+export type AIModelProvider = 'ollama' | 'openai' | 'gemini' | 'anthropic' | 'deepseek' | 'openrouter';
 
 export interface AISettings {
   provider: AIModelProvider;
@@ -595,6 +595,7 @@ export interface AISettings {
   voice_pitch: number;
   voice_rate: number;
   tts_voice_id?: string;
+  cloud_keys?: Record<string, string>;
 }
 
 export interface AIMessage {

@@ -102,6 +102,7 @@ pub fn run() {
             commands::delete_note,
             commands::start_ollama,
             commands::stop_ollama,
+            commands::ollama_pull_model,
             commands::tts_speak_local,
             commands::tts_download_model,
             commands::tts_check_model,

@@ -84,7 +84,11 @@ pub fn tts_speak_local(app: AppHandle, text: String, voice_id: String) -> Result
 }
 
 #[tauri::command]
-pub fn tts_download_model(app: AppHandle, voice_id: String) -> Result<String, String> {
+pub async fn tts_download_model(app: AppHandle, voice_id: String) -> Result<String, String> {
+    if voice_id == "system-natural" {
+        return Ok("System natural voice is built-in and already available".to_string());
+    }
+
     let app_data = app.path().app_data_dir().map_err(|e| e.to_string())?;
     let models_dir = app_data.join("tts_models");
     std::fs::create_dir_all(&models_dir).map_err(|e| e.to_string())?;
@@ -100,7 +104,7 @@ pub fn tts_download_model(app: AppHandle, voice_id: String) -> Result<String, St
             "https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_US/ryan/medium/en_US-ryan-medium.onnx.json",
             "en_US-ryan-medium.onnx", "en_US-ryan-medium.onnx.json"
         ),
-        "kokoro-heart" => (
+        id if id.starts_with("kokoro-") => (
             "https://huggingface.co/hexgrad/Kokoro-82M/resolve/main/kokoro-v1.0.onnx",
             "https://huggingface.co/hexgrad/Kokoro-82M/resolve/main/config.json",
             "kokoro-v1.0.onnx", "kokoro-v1.0.json"
@@ -108,32 +112,44 @@ pub fn tts_download_model(app: AppHandle, voice_id: String) -> Result<String, St
         _ => return Err("Unknown voice".to_string()),
     };
     
-    // Download model
     let model_path = models_dir.join(model_file);
     let config_path = models_dir.join(config_file);
     
-    let client = reqwest::blocking::Client::new();
-    
-    let mut model_resp = client.get(model_url).send().map_err(|e| e.to_string())?;
-    let mut model_file = std::fs::File::create(&model_path).map_err(|e| e.to_string())?;
-    std::io::copy(&mut model_resp, &mut model_file).map_err(|e| e.to_string())?;
-    
-    let mut config_resp = client.get(config_url).send().map_err(|e| e.to_string())?;
-    let mut config_file = std::fs::File::create(&config_path).map_err(|e| e.to_string())?;
-    std::io::copy(&mut config_resp, &mut config_file).map_err(|e| e.to_string())?;
+    tauri::async_runtime::spawn_blocking(move || -> Result<(), String> {
+        let client = reqwest::blocking::Client::builder()
+            .timeout(std::time::Duration::from_secs(300))
+            .build()
+            .map_err(|e| e.to_string())?;
+        
+        let mut model_resp = client.get(model_url).send().map_err(|e| e.to_string())?;
+        let mut model_file = std::fs::File::create(&model_path).map_err(|e| e.to_string())?;
+        std::io::copy(&mut model_resp, &mut model_file).map_err(|e| e.to_string())?;
+        
+        let mut config_resp = client.get(config_url).send().map_err(|e| e.to_string())?;
+        let mut config_file = std::fs::File::create(&config_path).map_err(|e| e.to_string())?;
+        std::io::copy(&mut config_resp, &mut config_file).map_err(|e| e.to_string())?;
+        
+        Ok(())
+    })
+    .await
+    .map_err(|e| e.to_string())??;
     
     Ok(format!("Downloaded {} to {}", voice_id, models_dir.display()))
 }
 
 #[tauri::command]
 pub fn tts_check_model(app: AppHandle, voice_id: String) -> Result<bool, String> {
+    if voice_id == "system-natural" {
+        return Ok(true);
+    }
+
     let app_data = app.path().app_data_dir().map_err(|e| e.to_string())?;
     let models_dir = app_data.join("tts_models");
     
     let model_file = match voice_id.as_str() {
         "piper-lessac" => "en_US-lessac-medium.onnx",
         "piper-ryan" => "en_US-ryan-medium.onnx",
-        "kokoro-heart" => "kokoro-v1.0.onnx",
+        id if id.starts_with("kokoro-") => "kokoro-v1.0.onnx",
         _ => return Ok(false),
     };
     
@@ -551,6 +567,27 @@ pub fn stop_ollama(state: State<'_, OllamaProcessState>) -> Result<bool, String>
         return Ok(true);
     }
     Ok(false)
+}
+
+#[tauri::command]
+pub async fn ollama_pull_model(model: String) -> Result<String, String> {
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(1800))
+        .build()
+        .map_err(|e| e.to_string())?;
+
+    let resp = client
+        .post("http://localhost:11434/api/pull")
+        .json(&serde_json::json!({ "name": model, "stream": false }))
+        .send()
+        .await
+        .map_err(|e| format!("Could not connect to Ollama: {}", e))?;
+
+    if resp.status().is_success() {
+        Ok(format!("Model {} downloaded successfully", model))
+    } else {
+        Err(format!("Ollama pull failed with HTTP {}", resp.status()))
+    }
 }
 
 // ---------------------------------------------------------------------------

@@ -154,7 +154,7 @@ fn wait_for_code(
                     write_response(
                         &mut stream,
                         "405 Method Not Allowed",
-                        &response_page("DayOS", "This endpoint only accepts GET requests."),
+                        &response_page("Method Not Allowed", "This endpoint only accepts GET requests.", false),
                     );
                     continue;
                 }
@@ -164,7 +164,7 @@ fn wait_for_code(
                         write_response(
                             &mut stream,
                             "404 Not Found",
-                            &response_page("DayOS", "This is not the OAuth callback endpoint."),
+                            &response_page("Endpoint Not Found", "This is not the OAuth callback endpoint.", false),
                         );
                     }
                     CallbackOutcome::InvalidState => {
@@ -172,8 +172,9 @@ fn wait_for_code(
                             &mut stream,
                             "400 Bad Request",
                             &response_page(
-                                "DayOS",
-                                "The sign-in response did not match this request. You can close this window.",
+                                "Invalid Security State",
+                                "The sign-in response did not match this request. You can safely close this window.",
+                                false,
                             ),
                         );
                     }
@@ -182,8 +183,9 @@ fn wait_for_code(
                             &mut stream,
                             "400 Bad Request",
                             &response_page(
-                                "DayOS",
+                                "Authorization Incomplete",
                                 "The provider did not return an authorization code. You can close this window.",
+                                false,
                             ),
                         );
                         return Err(ApiError::new(
@@ -196,7 +198,7 @@ fn wait_for_code(
                         write_response(
                             &mut stream,
                             "400 Bad Request",
-                            &response_page("DayOS sign-in was not completed", &message),
+                            &response_page("Sign-In Not Completed", &message, false),
                         );
                         return Err(ApiError::new("auth_cancelled", message, false));
                     }
@@ -205,8 +207,9 @@ fn wait_for_code(
                             &mut stream,
                             "200 OK",
                             &response_page(
-                                "DayOS is connected",
-                                "Sign-in is complete. You can close this window and return to DayOS.",
+                                "DayOS is Connected",
+                                "Sign-in is complete! Your calendar and meetings are now synced. You can return to DayOS.",
+                                true,
                             ),
                         );
                         return Ok(code);
@@ -285,19 +288,172 @@ fn truncate(value: &str, max_chars: usize) -> String {
     value.chars().take(max_chars).collect()
 }
 
-fn response_page(title: &str, message: &str) -> String {
+fn response_page(title: &str, message: &str, is_success: bool) -> String {
+    let escaped_title = escape_html(title);
+    let escaped_message = escape_html(message);
+
+    let (icon_svg, glow_color, badge_text, badge_color) = if is_success {
+        (
+            r##"<div style="width:72px;height:72px;margin:0 auto 20px;border-radius:50%;background:rgba(16,185,129,0.12);border:2px solid rgba(16,185,129,0.4);display:flex;align-items:center;justify-content:center;box-shadow:0 0 30px rgba(16,185,129,0.25);">
+                <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#10B981" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+            </div>"##,
+            "rgba(16, 185, 129, 0.15)",
+            "Connected to DayOS",
+            "#10B981",
+        )
+    } else {
+        (
+            r##"<div style="width:72px;height:72px;margin:0 auto 20px;border-radius:50%;background:rgba(239,68,68,0.12);border:2px solid rgba(239,68,68,0.4);display:flex;align-items:center;justify-content:center;box-shadow:0 0 30px rgba(239,68,68,0.25);">
+                <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#EF4444" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <line x1="12" y1="8" x2="12" y2="12"></line>
+                    <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                </svg>
+            </div>"##,
+            "rgba(239, 68, 68, 0.15)",
+            "Authentication Notice",
+            "#EF4444",
+        )
+    };
+
+    let auto_close_script = if is_success {
+        r##"<script>
+            let seconds = 4;
+            const timerEl = document.getElementById('countdown');
+            const countdownInterval = setInterval(() => {
+                seconds--;
+                if (timerEl) timerEl.textContent = seconds;
+                if (seconds <= 0) {
+                    clearInterval(countdownInterval);
+                    window.close();
+                }
+            }, 1000);
+        </script>"##
+    } else {
+        ""
+    };
+
+    let countdown_html = if is_success {
+        r##"<p style="margin:20px 0 0;color:#64748B;font-size:12px;display:flex;align-items:center;justify-content:center;gap:6px;">
+            <span>This window will attempt to close in <strong id="countdown" style="color:#94A3B8;">4</strong>s</span>
+        </p>"##
+    } else {
+        ""
+    };
+
     format!(
-        "<!doctype html><html><head><meta charset=\"utf-8\">\
-         <meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">\
-         <title>{title}</title></head>\
-         <body style=\"margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;\
-         background:#0f1115;color:#f4f4f5;font-family:system-ui,-apple-system,Segoe UI,sans-serif;\">\
-         <main style=\"max-width:32rem;padding:2rem;text-align:center;\">\
-         <h1 style=\"font-size:1.35rem;margin:0 0 0.75rem;\">{title}</h1>\
-         <p style=\"margin:0;color:#a1a1aa;line-height:1.6;\">{message}</p>\
-         </main></body></html>",
-        title = escape_html(title),
-        message = escape_html(message),
+        r##"<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>{title} • DayOS</title>
+    <style>
+        * {{ box-sizing: border-box; }}
+        body {{
+            margin: 0;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: radial-gradient(circle at 50% 25%, {glow_color}, transparent 55%), radial-gradient(circle at 80% 80%, rgba(99, 102, 241, 0.08), transparent 45%), #090D16;
+            color: #F8FAFC;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            padding: 24px;
+        }}
+        .card {{
+            background: rgba(15, 23, 42, 0.85);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 24px;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7), 0 0 40px -10px {glow_color};
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+            max-width: 440px;
+            width: 100%;
+            padding: 40px 32px;
+            text-align: center;
+        }}
+        .brand {{
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+            color: #94A3B8;
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            padding: 6px 14px;
+            border-radius: 9999px;
+            margin-bottom: 24px;
+        }}
+        .dot {{
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: {badge_color};
+            box-shadow: 0 0 8px {badge_color};
+        }}
+        h1 {{
+            font-size: 22px;
+            font-weight: 700;
+            margin: 0 0 10px;
+            color: #FFFFFF;
+            letter-spacing: -0.02em;
+        }}
+        p.desc {{
+            margin: 0 0 28px;
+            color: #94A3B8;
+            font-size: 14px;
+            line-height: 1.6;
+        }}
+        .btn {{
+            display: inline-block;
+            width: 100%;
+            padding: 12px 20px;
+            background: #2563EB;
+            color: #FFFFFF;
+            font-size: 14px;
+            font-weight: 600;
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            text-decoration: none;
+            transition: all 0.2s ease;
+            box-shadow: 0 4px 14px rgba(37, 99, 235, 0.35);
+        }}
+        .btn:hover {{
+            background: #1D4ED8;
+            transform: translateY(-1px);
+        }}
+    </style>
+</head>
+<body>
+    <div class="card">
+        <div class="brand">
+            <span class="dot"></span>
+            <span>{badge_text}</span>
+        </div>
+        {icon_svg}
+        <h1>{title}</h1>
+        <p class="desc">{message}</p>
+        <button class="btn" onclick="window.close()">Return to DayOS</button>
+        {countdown_html}
+    </div>
+    {auto_close_script}
+</body>
+</html>"##,
+        title = escaped_title,
+        message = escaped_message,
+        glow_color = glow_color,
+        badge_text = badge_text,
+        badge_color = badge_color,
+        icon_svg = icon_svg,
+        countdown_html = countdown_html,
+        auto_close_script = auto_close_script
     )
 }
 

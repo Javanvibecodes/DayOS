@@ -17,7 +17,14 @@ import {
 import { toast } from '@/stores/toastStore';
 import { THEME_PALETTES, applyAppearance, resolveColorMode, type ThemeColor } from '@/lib/theme';
 import { meetingIntegrationService } from '@/services/meetingIntegrationService';
-import { aiAgentService, defaultAISettings, LOCAL_NEURAL_VOICES, speechService, ollamaService } from '@/services/aiAgentService';
+import {
+  aiAgentService,
+  defaultAISettings,
+  LOCAL_NEURAL_VOICES,
+  MODEL_RECOMMENDATIONS,
+  speechService,
+  ollamaService,
+} from '@/services/aiAgentService';
 import { useDeviceStore } from '@/stores/deviceStore';
 import { MobileSyncModal } from '@/components/modals/MobileSyncModal';
 import type {
@@ -260,14 +267,25 @@ export function SettingsPage() {
   const [modelDownloadStatus, setModelDownloadStatus] = useState<Record<string, 'downloaded' | 'downloading' | 'not_downloaded'>>({});
   const [installedOllamaModels, setInstalledOllamaModels] = useState<string[]>([]);
   const [isOllamaRunning, setIsOllamaRunning] = useState(false);
+  const [ollamaDownloadStatus, setOllamaDownloadStatus] = useState<Record<string, { status: 'idle' | 'downloading' | 'installed'; progress?: number }>>({});
+  const [editingCloudProvider, setEditingCloudProvider] = useState<string | null>(null);
+  const [cloudKeyInput, setCloudKeyInput] = useState('');
+  const [activeMenuCloudProvider, setActiveMenuCloudProvider] = useState<string | null>(null);
 
   useEffect(() => {
     const checkModels = async () => {
       try {
         const downloaded = await speechService.listDownloadedModels();
         const status: Record<string, 'downloaded' | 'downloading' | 'not_downloaded'> = {};
-        LOCAL_NEURAL_VOICES.filter(v => v.engine !== 'system').forEach(v => {
-          status[v.id] = downloaded.some(d => d.includes(v.id.replace('-', '_')) || d.includes(v.id)) ? 'downloaded' : 'not_downloaded';
+        const hasKokoro = downloaded.some(d => d.toLowerCase().includes('kokoro'));
+        LOCAL_NEURAL_VOICES.forEach(v => {
+          if (v.engine === 'system') {
+            status[v.id] = 'downloaded';
+          } else if (v.engine === 'kokoro') {
+            status[v.id] = hasKokoro ? 'downloaded' : 'not_downloaded';
+          } else {
+            status[v.id] = downloaded.some(d => d.includes(v.id.replace('-', '_')) || d.includes(v.id)) ? 'downloaded' : 'not_downloaded';
+          }
         });
         setModelDownloadStatus(status);
       } catch {
@@ -884,369 +902,730 @@ export function SettingsPage() {
 
           {/* AI Agent Tab */}
           {activeTab === 'ai-agent' && (
-            <section className="bg-surface rounded-2xl border border-outline-variant/30 p-[28px] flex flex-col gap-[28px] shadow-sm">
-              <div>
-                <h3 className="text-[18px] font-bold text-on-surface flex items-center gap-[18px] mb-[8px]">
-                  <span className="material-symbols-outlined text-primary">smart_toy</span> DayOS AI Assistant
-                </h3>
-                <p className="text-[14px] text-on-surface-variant">
-                  Configure your local or online LLM model, speech recognition, and voice response parameters.
-                </p>
-              </div>
-
-              <div className="flex flex-col gap-[16px]">
-                {/* Provider Picker */}
-                <div>
-                  <label className="text-[12px] font-semibold uppercase tracking-wider text-on-surface-variant block mb-2">
-                    Model Provider
-                  </label>
-                  <select
-                    value={aiConfig.provider}
-                    onChange={(e) =>
-                      setAiConfig({
-                        ...aiConfig,
-                        provider: e.target.value as any,
-                        endpoint_url:
-                          e.target.value === 'ollama' ? 'http://localhost:11434' : aiConfig.endpoint_url,
-                      })
-                    }
-                    className="w-full bg-surface-container-low border border-outline-variant/30 rounded-lg px-[12px] py-[10px] text-[14px] text-on-surface focus:outline-none focus:border-primary"
-                  >
-                    <option value="ollama">Ollama (100% Local Offline - Recommended)</option>
-                    <option value="openai">OpenAI (GPT-4o / GPT-4o-mini)</option>
-                    <option value="gemini">Google Gemini API</option>
-                    <option value="anthropic">Anthropic Claude</option>
-                    <option value="openrouter">OpenRouter (Multi-model)</option>
-                  </select>
-                </div>
-
-                {/* Connection Status Dashboard */}
-                <div className="p-[16px] rounded-xl bg-surface-container-low border border-outline-variant/20 space-y-4">
-                  <h4 className="text-[13px] font-bold text-on-surface flex items-center gap-2">
-                    <span className="material-symbols-outlined text-primary text-[18px]">dashboard</span>
-                    Connection Status
-                  </h4>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    {/* Cloud APIs */}
-                    <div className="space-y-2">
-                      <p className="text-[11px] font-semibold uppercase tracking-wider text-on-surface-variant">Cloud APIs</p>
-                      <div className="space-y-1.5">
-                        {[
-                          { id: 'openai', label: 'OpenAI', model: 'GPT-4o-mini' },
-                          { id: 'gemini', label: 'Google Gemini', model: 'Flash 1.5' },
-                          { id: 'anthropic', label: 'Anthropic', model: 'Claude 3.5 Sonnet' },
-                          { id: 'openrouter', label: 'OpenRouter', model: 'Multi-model' },
-                        ].map((api) => (
-                          <div
-                            key={api.id}
-                            className="flex items-center justify-between p-2 rounded-lg bg-surface border border-outline-variant/20 text-xs"
-                          >
-                            <div className="flex items-center gap-2">
-                              <span className={`w-2 h-2 rounded-full ${
-                                aiConfig.api_key && aiConfig.provider === api.id
-                                  ? 'bg-emerald-500'
-                                  : 'bg-surface-container-highest'
-                              }`} />
-                              <span className="font-medium text-on-surface">{api.label}</span>
-                              <span className="text-[10px] text-on-surface-variant px-1.5 py-0.5 rounded bg-surface-container">{api.model}</span>
-                            </div>
-                            <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${
-                              aiConfig.api_key && aiConfig.provider === api.id
-                                ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20'
-                                : 'bg-surface-container border border-outline-variant/30 text-on-surface-variant'
-                            }`}>
-                              {aiConfig.api_key && aiConfig.provider === api.id ? 'Connected' : 'Not Connected'}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Local Models */}
-                    <div className="space-y-2">
-                      <p className="text-[11px] font-semibold uppercase tracking-wider text-on-surface-variant">Local Models</p>
-                      <div className="space-y-1.5">
-                        {/* Ollama Models */}
-                        <div className="p-2 rounded-lg bg-surface border border-outline-variant/20 text-xs">
-                          <div className="flex items-center justify-between mb-1">
-                            <span className="font-medium text-on-surface flex items-center gap-1.5">
-                              <span className={`w-2 h-2 rounded-full ${isOllamaRunning ? 'bg-emerald-500' : 'bg-amber-500'}`} />
-                              Ollama Server
-                            </span>
-                            <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${
-                              isOllamaRunning
-                                ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20'
-                                : 'bg-amber-500/10 text-amber-500 border border-amber-500/20'
-                            }`}>
-                              {isOllamaRunning ? 'Running' : 'Offline'}
-                            </span>
-                          </div>
-                          {installedOllamaModels.length > 0 ? (
-                            <div className="space-y-1 pl-4">
-                              {installedOllamaModels.slice(0, 3).map((m) => (
-                                <div key={m} className="flex items-center gap-2 text-[11px] text-on-surface-variant">
-                                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                                  <span className="font-mono text-[10px] truncate max-w-[200px]">{m}</span>
-                                </div>
-                              ))}
-                              {installedOllamaModels.length > 3 && (
-                                <div className="text-[10px] text-on-surface-variant/60 pl-2">
-                                  +{installedOllamaModels.length - 3} more models
-                                </div>
-                              )}
-                            </div>
-                          ) : (
-                            <div className="text-[11px] text-on-surface-variant/60 pl-4">No models installed</div>
-                          )}
-                        </div>
-
-                        {/* Downloaded TTS Models */}
-                        <div className="p-2 rounded-lg bg-surface border border-outline-variant/20 text-xs">
-                          <div className="flex items-center justify-between mb-1">
-                            <span className="font-medium text-on-surface flex items-center gap-1.5">
-                              <span className="w-2 h-2 rounded-full bg-primary" />
-                              Local TTS (Piper/Kokoro)
-                            </span>
-                          </div>
-                          <div className="space-y-1 pl-4">
-                            {LOCAL_NEURAL_VOICES.filter(v => v.engine !== 'system').map((v) => (
-                              <div key={v.id} className="flex items-center gap-2 text-[11px]">
-                                <span className={`w-1.5 h-1.5 rounded-full ${
-                                  modelDownloadStatus[v.id] === 'downloaded' ? 'bg-emerald-500' : 'bg-surface-container-highest'
-                                }`} />
-                                <span className="font-mono text-[10px] truncate max-w-[180px]">{v.name} ({v.engine})</span>
-                                <span className={`text-[9px] px-1.5 py-0.5 rounded font-mono ${
-                                  modelDownloadStatus[v.id] === 'downloaded'
-                                    ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20'
-                                    : 'bg-surface-container border border-outline-variant/30 text-on-surface-variant'
-                                }`}>
-                                  {modelDownloadStatus[v.id] === 'downloaded' ? 'Ready' : 'Not Downloaded'}
-                                </span>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Model Name */}
-                <div>
-                  <label className="text-[12px] font-semibold uppercase tracking-wider text-on-surface-variant block mb-2">
-                    Model Name
-                  </label>
-                  <input
-                    type="text"
-                    value={aiConfig.model_name}
-                    onChange={(e) => setAiConfig({ ...aiConfig, model_name: e.target.value })}
-                    placeholder="e.g. llama3.2, mistral, gpt-4o-mini"
-                    className="w-full bg-surface-container-low border border-outline-variant/30 rounded-lg px-[12px] py-[10px] text-[14px] text-on-surface focus:outline-none focus:border-primary"
-                  />
-                  <p className="text-[11px] text-on-surface-variant/70 mt-1">
-                    For local Ollama, ensure you have run <code>ollama run {aiConfig.model_name || 'llama3.2'}</code>.
-                  </p>
-                </div>
-
-                {/* Endpoint URL (For Ollama / Local) */}
-                {aiConfig.provider === 'ollama' && (
+            <div className="flex flex-col gap-[28px]">
+              {/* SECTION 1: Local AI Engine (100% Offline & Private) */}
+              <section className="bg-surface rounded-2xl border border-outline-variant/30 p-[28px] flex flex-col gap-[24px] shadow-sm">
+                <div className="flex items-start justify-between flex-wrap gap-4">
                   <div>
-                    <label className="text-[12px] font-semibold uppercase tracking-wider text-on-surface-variant block mb-2">
-                      Local Endpoint URL
-                    </label>
-                    <input
-                      type="text"
-                      value={aiConfig.endpoint_url}
-                      onChange={(e) => setAiConfig({ ...aiConfig, endpoint_url: e.target.value })}
-                      className="w-full bg-surface-container-low border border-outline-variant/30 rounded-lg px-[12px] py-[10px] text-[14px] text-on-surface font-mono text-xs focus:outline-none focus:border-primary"
-                    />
+                    <h3 className="text-[18px] font-bold text-on-surface flex items-center gap-[12px] mb-[6px]">
+                      <span className="material-symbols-outlined text-primary">memory</span>
+                      Local AI Engine (100% Offline & Private)
+                    </h3>
+                    <p className="text-[13px] text-on-surface-variant max-w-2xl leading-relaxed">
+                      Runs locally on your machine via Ollama and neural ONNX engines. Zero data, prompts, or focus logs ever leave your device.
+                    </p>
                   </div>
-                )}
-
-                {/* API Key (For Cloud) */}
-                {aiConfig.provider !== 'ollama' && (
-                  <div>
-                    <label className="text-[12px] font-semibold uppercase tracking-wider text-on-surface-variant block mb-2">
-                      API Key
-                    </label>
-                    <input
-                      type="password"
-                      value={aiConfig.api_key}
-                      onChange={(e) => setAiConfig({ ...aiConfig, api_key: e.target.value })}
-                      placeholder="sk-..."
-                      className="w-full bg-surface-container-low border border-outline-variant/30 rounded-lg px-[12px] py-[10px] text-[14px] text-on-surface font-mono text-xs focus:outline-none focus:border-primary"
-                    />
-                  </div>
-                )}
-
-                {/* Voice Features Toggles */}
-                <div className="pt-2 border-t border-outline-variant/20 space-y-3">
-                  <h4 className="text-[13px] font-bold text-on-surface">Voice & Speech Capabilities</h4>
-                  <label className="flex items-center justify-between p-[14px] rounded-xl bg-surface-container-low cursor-pointer">
-                    <div>
-                      <p className="text-[13px] font-semibold text-on-surface">Speech Recognition (Voice In)</p>
-                      <p className="text-[11px] text-on-surface-variant">Talk directly to DayOS using your microphone</p>
-                    </div>
-                    <input
-                      type="checkbox"
-                      checked={aiConfig.speech_input_enabled}
-                      onChange={(e) =>
-                        setAiConfig({ ...aiConfig, speech_input_enabled: e.target.checked })
-                      }
-                      className="w-5 h-5 accent-primary cursor-pointer"
-                    />
-                  </label>
-
-                  <label className="flex items-center justify-between p-[14px] rounded-xl bg-surface-container-low cursor-pointer">
-                    <div>
-                      <p className="text-[13px] font-semibold text-on-surface">Voice Output (Text-to-Speech)</p>
-                      <p className="text-[11px] text-on-surface-variant">Speak AI responses back using natural speech models</p>
-                    </div>
-                    <input
-                      type="checkbox"
-                      checked={aiConfig.speech_output_enabled}
-                      onChange={(e) =>
-                        setAiConfig({ ...aiConfig, speech_output_enabled: e.target.checked })
-                      }
-                      className="w-5 h-5 accent-primary cursor-pointer"
-                    />
-                  </label>
-
-                  {/* Neural TTS Voice Selector (Kokoro & Piper) */}
-                  <div className="p-[16px] rounded-xl bg-surface-container-low border border-outline-variant/20 space-y-3">
-                    <div className="flex items-center justify-between flex-wrap gap-2">
-                      <div>
-                        <label className="text-[12px] font-semibold uppercase tracking-wider text-on-surface block">
-                          Local Neural Voice (Kokoro & Piper)
-                        </label>
-                        <p className="text-[11px] text-on-surface-variant">
-                          High-fidelity offline voices designed for natural speech rhythm. Download models for best quality.
-                        </p>
-                      </div>
+                  <div className="flex items-center gap-2">
+                    <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold border ${
+                      isOllamaRunning
+                        ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20'
+                        : 'bg-amber-500/10 text-amber-500 border-amber-500/20'
+                    }`}>
+                      <span className={`w-2 h-2 rounded-full ${isOllamaRunning ? 'bg-emerald-500' : 'bg-amber-500'}`} />
+                      Ollama {isOllamaRunning ? 'Running' : 'Offline'}
+                    </span>
+                    {!isOllamaRunning && (
                       <button
                         type="button"
                         onClick={async () => {
-                          const voiceId = aiConfig.tts_voice_id || 'kokoro-heart';
-                          await speechService.previewVoice(voiceId);
-                          toast.info('Playing voice audition sample...');
+                          toast.info('Starting Ollama server...');
+                          const running = await ollamaService.ensureRunning();
+                          setIsOllamaRunning(running);
+                          if (running) {
+                            const models = await ollamaService.getInstalledModels();
+                            setInstalledOllamaModels(models);
+                            toast.success('Ollama server is active');
+                          } else {
+                            toast.error('Could not auto-start Ollama. Make sure Ollama is installed on your PC.');
+                          }
                         }}
-                        className="px-3 py-1 rounded-lg text-xs font-semibold bg-primary/10 text-primary hover:bg-primary/20 transition-colors flex items-center gap-1.5"
+                        className="px-3 py-1 bg-primary text-on-primary text-xs font-semibold rounded-lg hover:bg-primary/90 transition-colors"
                       >
-                        <span>🔊</span>
-                        <span>Preview Voice</span>
+                        Start Server
                       </button>
-                    </div>
-
-                    {/* Voice selector with download status */}
-                    <div className="space-y-2">
-                      <select
-                        value={aiConfig.tts_voice_id || 'kokoro-heart'}
-                        onChange={(e) => setAiConfig({ ...aiConfig, tts_voice_id: e.target.value })}
-                        className="w-full bg-surface-container border border-outline-variant/30 rounded-lg px-[12px] py-[8px] text-[13px] text-on-surface focus:outline-none focus:border-primary"
-                      >
-                        <optgroup label="Kokoro Neural Voices (Warm & Expressive)">
-                          {LOCAL_NEURAL_VOICES.filter((v) => v.engine === 'kokoro').map((v) => (
-                            <option key={v.id} value={v.id}>
-                              {v.name} ({v.accent}) — {v.description}
-                            </option>
-                          ))}
-                        </optgroup>
-                        <optgroup label="Piper Neural Voices (Crisp & Natural)">
-                          {LOCAL_NEURAL_VOICES.filter((v) => v.engine === 'piper').map((v) => (
-                            <option key={v.id} value={v.id}>
-                              {v.name} ({v.accent}) — {v.description}
-                            </option>
-                          ))}
-                        </optgroup>
-                        <optgroup label="System Fallback (Always Available)">
-                          {LOCAL_NEURAL_VOICES.filter((v) => v.engine === 'system').map((v) => (
-                            <option key={v.id} value={v.id}>
-                              {v.name} — {v.description}
-                            </option>
-                          ))}
-                        </optgroup>
-                      </select>
-
-                      {/* Model Download Status & Actions */}
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
-                        {LOCAL_NEURAL_VOICES.filter((v) => v.engine !== 'system').map((v) => (
-                          <div
-                            key={v.id}
-                            className={`p-3 rounded-lg border transition-colors ${
-                              aiConfig.tts_voice_id === v.id
-                                ? 'border-primary/50 bg-primary/5 ring-1 ring-primary/20'
-                                : 'border-outline-variant/20 bg-surface-container-low hover:border-outline-variant/40'
-                            }`}
-                          >
-                            <div className="flex items-center justify-between gap-2 mb-2">
-                              <div className="flex items-center gap-2 min-w-0 flex-1">
-                                <span className="text-[12px] font-semibold text-on-surface truncate">{v.name}</span>
-                                <span className="text-[10px] text-on-surface-variant uppercase tracking-wider">{v.engine}</span>
-                              </div>
-                              <span className={`text-[10px] px-1.5 py-0.5 rounded font-mono shrink-0 ${
-                                modelDownloadStatus[v.id] === 'downloaded'
-                                  ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20'
-                                  : modelDownloadStatus[v.id] === 'downloading'
-                                  ? 'bg-amber-500/10 text-amber-500 border border-amber-500/20'
-                                  : 'bg-surface-container border border-outline-variant/30 text-on-surface-variant'
-                              }`}>
-                                {modelDownloadStatus[v.id] === 'downloaded' ? '✓ Downloaded' : modelDownloadStatus[v.id] === 'downloading' ? '⬇ Downloading...' : '⬇ Not Downloaded'}
-                              </span>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              {modelDownloadStatus[v.id] !== 'downloaded' && (
-                                <button
-                                  type="button"
-                                  onClick={async () => {
-                                    setModelDownloadStatus(prev => ({ ...prev, [v.id]: 'downloading' }));
-                                    try {
-                                      await speechService.downloadLocalModel(v.id);
-                                      setModelDownloadStatus(prev => ({ ...prev, [v.id]: 'downloaded' }));
-                                      toast.success(`${v.name} model downloaded successfully`);
-                                    } catch (err) {
-                                      setModelDownloadStatus(prev => ({ ...prev, [v.id]: 'not_downloaded' }));
-                                      toast.error(`Failed to download ${v.name}: ${String(err)}`);
-                                    }
-                                  }}
-                                  disabled={modelDownloadStatus[v.id] === 'downloading'}
-                                  className="flex-1 px-2 py-1.5 text-[11px] font-medium rounded-lg bg-primary/10 text-primary hover:bg-primary/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                                >
-                                  Download Model
-                                </button>
-                              )}
-                              {modelDownloadStatus[v.id] === 'downloaded' && (
-                                <button
-                                  type="button"
-                                  onClick={async () => {
-                                    await speechService.previewVoice(v.id);
-                                    toast.info(`Playing ${v.name} sample...`);
-                                  }}
-                                  className="flex-1 px-2 py-1.5 text-[11px] font-medium rounded-lg bg-primary-container text-on-primary-container hover:bg-primary-container/90 transition-colors"
-                                >
-                                  Test Voice
-                                </button>
-                              )}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
+                    )}
                   </div>
                 </div>
 
-                <div className="flex justify-end pt-2">
-                  <button
-                    onClick={async () => {
-                      await aiAgentService.saveSettings(aiConfig);
-                      toast.success('AI Agent configuration saved');
-                    }}
-                    className="px-[20px] py-[10px] bg-primary text-on-primary text-[13px] font-semibold rounded-lg hover:bg-primary/90 transition-colors shadow-sm"
-                  >
-                    Save AI Settings
-                  </button>
+                {/* Local Model Selector (No manual model name field) */}
+                <div className="p-[18px] rounded-xl bg-surface-container-low border border-outline-variant/20 space-y-3">
+                  <div className="flex items-center justify-between flex-wrap gap-2">
+                    <div>
+                      <label className="text-[12px] font-bold uppercase tracking-wider text-on-surface block">
+                        Active Local Model
+                      </label>
+                      <p className="text-[12px] text-on-surface-variant">
+                        Select which installed Ollama model powers your local DayOS AI assistant.
+                      </p>
+                    </div>
+                    {aiConfig.provider === 'ollama' && (
+                      <span className="text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">
+                        Active Provider
+                      </span>
+                    )}
+                  </div>
+
+                  {installedOllamaModels.length > 0 ? (
+                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+                      <select
+                        value={aiConfig.model_name || installedOllamaModels[0]}
+                        onChange={(e) => {
+                          const newModel = e.target.value;
+                          setAiConfig({ ...aiConfig, provider: 'ollama', model_name: newModel });
+                          toast.success(`Selected local model: ${newModel}`);
+                        }}
+                        className="flex-1 bg-surface border border-outline-variant/30 rounded-lg px-[12px] py-[10px] text-[13px] text-on-surface font-medium focus:outline-none focus:border-primary"
+                      >
+                        {installedOllamaModels.map((m) => (
+                          <option key={m} value={m}>
+                            {m} {aiConfig.model_name === m ? '(Active)' : ''}
+                          </option>
+                        ))}
+                      </select>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setAiConfig({ ...aiConfig, provider: 'ollama' });
+                          toast.success('Ollama set as active AI provider');
+                        }}
+                        className={`px-4 py-2 text-xs font-semibold rounded-lg transition-colors shrink-0 ${
+                          aiConfig.provider === 'ollama'
+                            ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20'
+                            : 'bg-primary text-on-primary hover:bg-primary/90'
+                        }`}
+                      >
+                        {aiConfig.provider === 'ollama' ? '✓ Currently Using Local AI' : 'Switch to Local AI'}
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="p-4 rounded-lg bg-surface border border-dashed border-outline-variant/40 text-center space-y-1">
+                      <p className="text-[13px] font-semibold text-on-surface">No local models detected yet</p>
+                      <p className="text-[12px] text-on-surface-variant">
+                        One-tap download any recommended model below to start using 100% private AI on your machine.
+                      </p>
+                    </div>
+                  )}
                 </div>
+
+                {/* One-Tap Download Ollama Models */}
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between flex-wrap gap-2">
+                    <h4 className="text-[14px] font-bold text-on-surface flex items-center gap-2">
+                      <span className="material-symbols-outlined text-primary text-[18px]">download_for_offline</span>
+                      One-Tap Download Ollama Models
+                    </h4>
+                    <span className="text-[11px] text-on-surface-variant font-medium">
+                      Optimized for local laptop & desktop hardware
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+                    {MODEL_RECOMMENDATIONS.map((rec) => {
+                      const isInstalled = installedOllamaModels.some(
+                        (m) => m === rec.tag || m.startsWith(`${rec.tag}:`) || rec.tag.startsWith(m.split(':')[0])
+                      );
+                      const isDownloading = ollamaDownloadStatus[rec.tag]?.status === 'downloading';
+                      const downloadProgress = ollamaDownloadStatus[rec.tag]?.progress;
+                      const isCurrentActive = aiConfig.provider === 'ollama' && (aiConfig.model_name === rec.tag || aiConfig.model_name.startsWith(rec.tag));
+
+                      return (
+                        <div
+                          key={rec.tag}
+                          className={`p-4 rounded-xl border flex flex-col justify-between transition-all ${
+                            isCurrentActive
+                              ? 'border-primary/50 bg-primary/5 ring-1 ring-primary/25'
+                              : 'border-outline-variant/20 bg-surface-container-low hover:border-outline-variant/40'
+                          }`}
+                        >
+                          <div className="space-y-2 mb-3">
+                            <div className="flex items-start justify-between gap-2">
+                              <div>
+                                <h5 className="text-[14px] font-bold text-on-surface">{rec.name}</h5>
+                                <span className="text-[11px] font-mono text-on-surface-variant">{rec.tag}</span>
+                              </div>
+                              <div className="flex items-center gap-1.5 shrink-0">
+                                <span className="px-2 py-0.5 rounded text-[10px] font-mono font-semibold bg-primary/10 text-primary border border-primary/20">
+                                  {rec.sizeGb}
+                                </span>
+                                <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-surface-container border border-outline-variant/30 text-on-surface-variant">
+                                  {rec.smoothness}
+                                </span>
+                              </div>
+                            </div>
+                            <p className="text-[12px] text-on-surface-variant whitespace-normal break-words leading-relaxed">
+                              {rec.description}
+                            </p>
+                          </div>
+
+                          <div className="pt-2 border-t border-outline-variant/15 flex items-center justify-between gap-2">
+                            {isInstalled ? (
+                              <>
+                                <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-500">
+                                  <span className="material-symbols-outlined text-[15px]">check_circle</span>
+                                  Installed
+                                </span>
+                                {isCurrentActive ? (
+                                  <span className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">
+                                    Active Model
+                                  </span>
+                                ) : (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setAiConfig({ ...aiConfig, provider: 'ollama', model_name: rec.tag });
+                                      toast.success(`${rec.name} set as active model`);
+                                    }}
+                                    className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
+                                  >
+                                    Set Active
+                                  </button>
+                                )}
+                              </>
+                            ) : (
+                              <button
+                                type="button"
+                                disabled={isDownloading}
+                                onClick={async () => {
+                                  setOllamaDownloadStatus((prev) => ({
+                                    ...prev,
+                                    [rec.tag]: { status: 'downloading', progress: 0 },
+                                  }));
+                                  toast.info(`Starting download for ${rec.name} (${rec.sizeGb})...`);
+                                  try {
+                                    await ollamaService.pullModel(rec.tag, (pct) => {
+                                      setOllamaDownloadStatus((prev) => ({
+                                        ...prev,
+                                        [rec.tag]: { status: 'downloading', progress: pct },
+                                      }));
+                                    });
+                                    setOllamaDownloadStatus((prev) => ({
+                                      ...prev,
+                                      [rec.tag]: { status: 'installed' },
+                                    }));
+                                    const updatedModels = await ollamaService.getInstalledModels();
+                                    setInstalledOllamaModels(updatedModels);
+                                    setAiConfig((prev) => ({ ...prev, provider: 'ollama', model_name: rec.tag }));
+                                    toast.success(`${rec.name} downloaded & set as active model!`);
+                                  } catch (err) {
+                                    setOllamaDownloadStatus((prev) => ({
+                                      ...prev,
+                                      [rec.tag]: { status: 'idle' },
+                                    }));
+                                    toast.error(`Download failed: ${String(err)}`);
+                                  }
+                                }}
+                                className="w-full py-2 px-3 text-xs font-semibold rounded-lg bg-primary text-on-primary hover:bg-primary/90 transition-colors disabled:opacity-60 flex items-center justify-center gap-1.5"
+                              >
+                                {isDownloading ? (
+                                  <>
+                                    <span className="material-symbols-outlined text-[16px] animate-spin">sync</span>
+                                    <span>Downloading {downloadProgress ? `${downloadProgress}%` : '...'}</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <span className="material-symbols-outlined text-[16px]">download</span>
+                                    <span>Download Model ({rec.sizeGb})</span>
+                                  </>
+                                )}
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Local Neural Voice & Speech (TTS Together with Local Model Selector) */}
+                <div className="pt-4 border-t border-outline-variant/20 space-y-4">
+                  <div>
+                    <h4 className="text-[14px] font-bold text-on-surface flex items-center gap-2">
+                      <span className="material-symbols-outlined text-primary text-[18px]">record_voice_over</span>
+                      Local Neural TTS Voices (Kokoro & Piper)
+                    </h4>
+                    <p className="text-[12px] text-on-surface-variant mt-1 leading-relaxed">
+                      High-fidelity, ultra-natural offline voices that synthesize speech locally without any robotic system cadence.
+                    </p>
+                  </div>
+
+                  {/* Active Voice Picker */}
+                  <div className="p-3.5 rounded-xl bg-surface-container-low border border-outline-variant/20 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+                    <div className="flex-1">
+                      <label className="text-[11px] font-bold uppercase tracking-wider text-on-surface-variant block mb-1">
+                        Active Speech Voice
+                      </label>
+                      <select
+                        value={aiConfig.tts_voice_id || 'kokoro-heart'}
+                        onChange={(e) => {
+                          setAiConfig({ ...aiConfig, tts_voice_id: e.target.value });
+                          toast.success('Active voice updated');
+                        }}
+                        className="w-full bg-surface border border-outline-variant/30 rounded-lg px-[12px] py-[8px] text-[13px] text-on-surface focus:outline-none focus:border-primary font-medium"
+                      >
+                        {LOCAL_NEURAL_VOICES.map((v) => (
+                          <option key={v.id} value={v.id}>
+                            {v.name} ({v.accent}) • {v.sizeMb}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        const voiceId = aiConfig.tts_voice_id || 'kokoro-heart';
+                        await speechService.previewVoice(voiceId);
+                        toast.info('Auditioning voice sample...');
+                      }}
+                      className="px-4 py-2 bg-primary/10 text-primary hover:bg-primary/20 text-xs font-semibold rounded-lg transition-colors flex items-center justify-center gap-1.5 self-end sm:self-center shrink-0"
+                    >
+                      <span className="material-symbols-outlined text-[16px]">volume_up</span>
+                      <span>Preview Current Voice</span>
+                    </button>
+                  </div>
+
+                  {/* TTS Voice Cards with Sizes, Working Downloads & Text Wrapping */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+                    {LOCAL_NEURAL_VOICES.map((v) => {
+                      const isDownloaded = modelDownloadStatus[v.id] === 'downloaded' || v.engine === 'system';
+                      const isDownloading = modelDownloadStatus[v.id] === 'downloading';
+                      const isSelected = (aiConfig.tts_voice_id || 'kokoro-heart') === v.id;
+
+                      return (
+                        <div
+                          key={v.id}
+                          className={`p-4 rounded-xl border flex flex-col justify-between transition-all ${
+                            isSelected
+                              ? 'border-primary/50 bg-primary/5 ring-1 ring-primary/25'
+                              : 'border-outline-variant/20 bg-surface-container-low hover:border-outline-variant/40'
+                          }`}
+                        >
+                          <div className="space-y-2 mb-3">
+                            <div className="flex items-start justify-between gap-2">
+                              <div>
+                                <h5 className="text-[13px] font-bold text-on-surface">{v.name}</h5>
+                                <span className="text-[10px] uppercase tracking-wider font-semibold text-on-surface-variant">
+                                  {v.engine} • {v.gender} • {v.accent}
+                                </span>
+                              </div>
+                              <span className="px-2 py-0.5 rounded text-[10px] font-mono font-semibold bg-primary/10 text-primary border border-primary/20 shrink-0">
+                                {v.sizeMb}
+                              </span>
+                            </div>
+                            <p className="text-[12px] text-on-surface-variant whitespace-normal break-words leading-relaxed">
+                              {v.description}
+                            </p>
+                          </div>
+
+                          <div className="pt-2 border-t border-outline-variant/15 flex items-center justify-between gap-2">
+                            {isDownloaded ? (
+                              <>
+                                <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-500">
+                                  <span className="material-symbols-outlined text-[15px]">check_circle</span>
+                                  {v.engine === 'system' ? 'System Built-In' : 'Ready'}
+                                </span>
+                                <div className="flex items-center gap-2">
+                                  <button
+                                    type="button"
+                                    onClick={async () => {
+                                      await speechService.previewVoice(v.id);
+                                      toast.info(`Playing ${v.name} sample...`);
+                                    }}
+                                    className="px-2.5 py-1 text-[11px] font-medium rounded-lg bg-surface border border-outline-variant/30 text-on-surface hover:bg-surface-container transition-colors"
+                                  >
+                                    Test Voice
+                                  </button>
+                                  {isSelected ? (
+                                    <span className="px-2.5 py-1 text-[11px] font-semibold rounded-lg bg-primary/15 text-primary border border-primary/25">
+                                      Active
+                                    </span>
+                                  ) : (
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setAiConfig({ ...aiConfig, tts_voice_id: v.id });
+                                        toast.success(`${v.name} selected as active voice`);
+                                      }}
+                                      className="px-2.5 py-1 text-[11px] font-medium rounded-lg bg-primary text-on-primary hover:bg-primary/90 transition-colors"
+                                    >
+                                      Select
+                                    </button>
+                                  )}
+                                </div>
+                              </>
+                            ) : (
+                              <button
+                                type="button"
+                                disabled={isDownloading}
+                                onClick={async () => {
+                                  setModelDownloadStatus((prev) => ({ ...prev, [v.id]: 'downloading' }));
+                                  toast.info(`Downloading ${v.name} model (${v.sizeMb})...`);
+                                  try {
+                                    await speechService.downloadLocalModel(v.id);
+                                    if (v.engine === 'kokoro') {
+                                      setModelDownloadStatus((prev) => {
+                                        const next = { ...prev };
+                                        LOCAL_NEURAL_VOICES.filter((vo) => vo.engine === 'kokoro').forEach((vo) => {
+                                          next[vo.id] = 'downloaded';
+                                        });
+                                        return next;
+                                      });
+                                    } else {
+                                      setModelDownloadStatus((prev) => ({ ...prev, [v.id]: 'downloaded' }));
+                                    }
+                                    setAiConfig((prev) => ({ ...prev, tts_voice_id: v.id }));
+                                    toast.success(`${v.name} downloaded successfully!`);
+                                  } catch (err) {
+                                    setModelDownloadStatus((prev) => ({ ...prev, [v.id]: 'not_downloaded' }));
+                                    toast.error(`Failed to download ${v.name}: ${String(err)}`);
+                                  }
+                                }}
+                                className="w-full py-1.5 px-3 text-xs font-semibold rounded-lg bg-primary text-on-primary hover:bg-primary/90 transition-colors disabled:opacity-60 flex items-center justify-center gap-1.5"
+                              >
+                                {isDownloading ? (
+                                  <>
+                                    <span className="material-symbols-outlined text-[15px] animate-spin">sync</span>
+                                    <span>Downloading ({v.sizeMb})...</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <span className="material-symbols-outlined text-[15px]">download</span>
+                                    <span>Download Voice ({v.sizeMb})</span>
+                                  </>
+                                )}
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Speech Input & Output Master Switches */}
+                <div className="pt-4 border-t border-outline-variant/20 space-y-3">
+                  <h4 className="text-[13px] font-bold text-on-surface">Voice & Audio Input/Output</h4>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <label className="flex items-center justify-between p-[14px] rounded-xl bg-surface border border-outline-variant/20 cursor-pointer">
+                      <div>
+                        <p className="text-[13px] font-semibold text-on-surface">Speech-to-Text (Mic In)</p>
+                        <p className="text-[11px] text-on-surface-variant">Speak directly to DayOS using microphone</p>
+                      </div>
+                      <input
+                        type="checkbox"
+                        checked={aiConfig.speech_input_enabled}
+                        onChange={(e) =>
+                          setAiConfig({ ...aiConfig, speech_input_enabled: e.target.checked })
+                        }
+                        className="w-5 h-5 accent-primary cursor-pointer shrink-0"
+                      />
+                    </label>
+
+                    <label className="flex items-center justify-between p-[14px] rounded-xl bg-surface border border-outline-variant/20 cursor-pointer">
+                      <div>
+                        <p className="text-[13px] font-semibold text-on-surface">Voice Audio (Speech Out)</p>
+                        <p className="text-[11px] text-on-surface-variant">Read responses out loud via neural TTS</p>
+                      </div>
+                      <input
+                        type="checkbox"
+                        checked={aiConfig.speech_output_enabled}
+                        onChange={(e) =>
+                          setAiConfig({ ...aiConfig, speech_output_enabled: e.target.checked })
+                        }
+                        className="w-5 h-5 accent-primary cursor-pointer shrink-0"
+                      />
+                    </label>
+                  </div>
+                </div>
+              </section>
+
+              {/* SECTION 2: Cloud AI Providers (Online Models) */}
+              <section className="bg-surface rounded-2xl border border-outline-variant/30 p-[28px] flex flex-col gap-[24px] shadow-sm">
+                <div>
+                  <h3 className="text-[18px] font-bold text-on-surface flex items-center gap-[12px] mb-[6px]">
+                    <span className="material-symbols-outlined text-primary">cloud</span>
+                    Cloud AI Providers (Online Models)
+                  </h3>
+                  <p className="text-[13px] text-on-surface-variant max-w-2xl leading-relaxed">
+                    Connect external API keys for commercial frontier models. Keys are stored encrypted in your local OS credential store.
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-1 gap-3.5">
+                  {[
+                    {
+                      id: 'openai',
+                      name: 'OpenAI',
+                      models: 'GPT-4o, GPT-4o-mini',
+                      desc: 'Advanced reasoning, multimodal analysis, and fast task execution.',
+                      icon: 'psychology',
+                      color: '#10A37F',
+                      defaultModel: 'gpt-4o-mini',
+                    },
+                    {
+                      id: 'gemini',
+                      name: 'Google Gemini',
+                      models: 'Gemini 1.5 Pro, Flash',
+                      desc: 'Massive context comprehension and rapid productivity reasoning.',
+                      icon: 'auto_awesome',
+                      color: '#4285F4',
+                      defaultModel: 'gemini-1.5-flash',
+                    },
+                    {
+                      id: 'anthropic',
+                      name: 'Anthropic Claude',
+                      models: 'Claude 3.5 Sonnet',
+                      desc: 'Industry benchmark for thoughtful writing, task synthesis, and planning.',
+                      icon: 'neurology',
+                      color: '#D97706',
+                      defaultModel: 'claude-3-5-sonnet-20241022',
+                    },
+                    {
+                      id: 'deepseek',
+                      name: 'DeepSeek',
+                      models: 'DeepSeek V3, R1',
+                      desc: 'State-of-the-art open-weights reasoning model with high performance.',
+                      icon: 'explore',
+                      color: '#0284C7',
+                      defaultModel: 'deepseek-chat',
+                    },
+                    {
+                      id: 'openrouter',
+                      name: 'OpenRouter',
+                      models: 'Multi-model aggregation',
+                      desc: 'Unified gateway to hundreds of open-source and proprietary models.',
+                      icon: 'hub',
+                      color: '#7C3AED',
+                      defaultModel: 'meta-llama/llama-3.2-3b-instruct:free',
+                    },
+                  ].map((provider) => {
+                    const savedKey =
+                      aiConfig.cloud_keys?.[provider.id] ||
+                      (aiConfig.provider === provider.id ? aiConfig.api_key : '');
+                    const isConnected = Boolean(savedKey && savedKey.trim().length > 0);
+                    const isActive = aiConfig.provider === provider.id;
+                    const isEditing = editingCloudProvider === provider.id;
+                    const isMenuOpen = activeMenuCloudProvider === provider.id;
+
+                    return (
+                      <div
+                        key={provider.id}
+                        className={`p-4 rounded-xl border transition-all ${
+                          isActive
+                            ? 'border-primary/50 bg-primary/5 ring-1 ring-primary/20'
+                            : 'border-outline-variant/20 bg-surface-container-low hover:border-outline-variant/40'
+                        }`}
+                      >
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                          <div className="flex items-start gap-3">
+                            <div
+                              className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
+                              style={{ backgroundColor: `${provider.color}15`, color: provider.color }}
+                            >
+                              <span className="material-symbols-outlined text-[22px]">{provider.icon}</span>
+                            </div>
+                            <div className="space-y-0.5">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <h4 className="text-[14px] font-bold text-on-surface">{provider.name}</h4>
+                                <span className="text-[11px] font-mono text-on-surface-variant px-2 py-0.5 rounded bg-surface border border-outline-variant/20">
+                                  {provider.models}
+                                </span>
+                                {isActive && (
+                                  <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">
+                                    Active AI
+                                  </span>
+                                )}
+                              </div>
+                              <p className="text-[12px] text-on-surface-variant whitespace-normal break-words">
+                                {provider.desc}
+                              </p>
+                            </div>
+                          </div>
+
+                          {/* Action Buttons: Connect / Connected + Three Dots */}
+                          <div className="flex items-center gap-2 self-end sm:self-center relative">
+                            {isConnected ? (
+                              <>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setAiConfig({
+                                      ...aiConfig,
+                                      provider: provider.id as any,
+                                      model_name: provider.defaultModel,
+                                      api_key: savedKey,
+                                    });
+                                    toast.success(`${provider.name} set as active AI`);
+                                  }}
+                                  className="px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-emerald-500/10 text-emerald-500 border border-emerald-500/25 hover:bg-emerald-500/20 transition-colors flex items-center gap-1.5"
+                                >
+                                  <span className="material-symbols-outlined text-[15px]">check_circle</span>
+                                  <span>Connected</span>
+                                </button>
+
+                                {/* Three Dots Menu for Rebind & Disconnect */}
+                                <div className="relative">
+                                  <button
+                                    type="button"
+                                    onClick={() => setActiveMenuCloudProvider(isMenuOpen ? null : provider.id)}
+                                    className="w-8 h-8 rounded-lg flex items-center justify-center text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-colors border border-outline-variant/30"
+                                    title="Options"
+                                  >
+                                    <span className="material-symbols-outlined text-[18px]">more_vert</span>
+                                  </button>
+
+                                  {isMenuOpen && (
+                                    <div className="absolute right-0 top-10 w-44 bg-surface border border-outline-variant/30 rounded-xl shadow-xl p-1 z-30 space-y-0.5">
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          setEditingCloudProvider(provider.id);
+                                          setCloudKeyInput(savedKey);
+                                          setActiveMenuCloudProvider(null);
+                                        }}
+                                        className="w-full text-left px-3 py-2 text-xs font-medium text-on-surface hover:bg-surface-container rounded-lg flex items-center gap-2 transition-colors"
+                                      >
+                                        <span className="material-symbols-outlined text-[16px] text-primary">key</span>
+                                        <span>Rebind (Update API)</span>
+                                      </button>
+                                      {!isActive && (
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            setAiConfig({
+                                              ...aiConfig,
+                                              provider: provider.id as any,
+                                              model_name: provider.defaultModel,
+                                              api_key: savedKey,
+                                            });
+                                            toast.success(`${provider.name} set as active AI`);
+                                            setActiveMenuCloudProvider(null);
+                                          }}
+                                          className="w-full text-left px-3 py-2 text-xs font-medium text-on-surface hover:bg-surface-container rounded-lg flex items-center gap-2 transition-colors"
+                                        >
+                                          <span className="material-symbols-outlined text-[16px] text-emerald-500">check</span>
+                                          <span>Set as Active AI</span>
+                                        </button>
+                                      )}
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          const nextCloudKeys = { ...(aiConfig.cloud_keys || {}) };
+                                          delete nextCloudKeys[provider.id];
+                                          const nextProvider = aiConfig.provider === provider.id ? 'ollama' : aiConfig.provider;
+                                          const updatedConfig = {
+                                            ...aiConfig,
+                                            provider: nextProvider,
+                                            api_key: aiConfig.provider === provider.id ? '' : aiConfig.api_key,
+                                            cloud_keys: nextCloudKeys,
+                                          };
+                                          setAiConfig(updatedConfig);
+                                          void aiAgentService.saveSettings(updatedConfig);
+                                          toast.success(`${provider.name} disconnected`);
+                                          setActiveMenuCloudProvider(null);
+                                        }}
+                                        className="w-full text-left px-3 py-2 text-xs font-medium text-error hover:bg-error/10 rounded-lg flex items-center gap-2 transition-colors"
+                                      >
+                                        <span className="material-symbols-outlined text-[16px]">link_off</span>
+                                        <span>Disconnect</span>
+                                      </button>
+                                    </div>
+                                  )}
+                                </div>
+                              </>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setEditingCloudProvider(provider.id);
+                                  setCloudKeyInput('');
+                                }}
+                                className="px-4 py-1.5 rounded-lg text-xs font-semibold bg-primary text-on-primary hover:bg-primary/90 transition-colors flex items-center gap-1.5"
+                              >
+                                <span className="material-symbols-outlined text-[15px]">add_link</span>
+                                <span>Connect</span>
+                              </button>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Inline Key Input for Connect or Rebind */}
+                        {isEditing && (
+                          <div className="mt-3.5 pt-3.5 border-t border-outline-variant/20 space-y-2">
+                            <label className="text-[11px] font-bold uppercase tracking-wider text-on-surface block">
+                              Enter {provider.name} API Key
+                            </label>
+                            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                              <input
+                                type="password"
+                                value={cloudKeyInput}
+                                onChange={(e) => setCloudKeyInput(e.target.value)}
+                                placeholder={`Paste your ${provider.name} API key...`}
+                                className="flex-1 bg-surface border border-outline-variant/30 rounded-lg px-3 py-2 text-xs font-mono text-on-surface focus:outline-none focus:border-primary"
+                              />
+                              <div className="flex items-center gap-2">
+                                <button
+                                  type="button"
+                                  onClick={async () => {
+                                    if (!cloudKeyInput.trim()) {
+                                      toast.error('API key cannot be empty');
+                                      return;
+                                    }
+                                    const nextCloudKeys = {
+                                      ...(aiConfig.cloud_keys || {}),
+                                      [provider.id]: cloudKeyInput.trim(),
+                                    };
+                                    const updatedConfig: AISettings = {
+                                      ...aiConfig,
+                                      provider: provider.id as any,
+                                      model_name: provider.defaultModel,
+                                      api_key: cloudKeyInput.trim(),
+                                      cloud_keys: nextCloudKeys,
+                                    };
+                                    setAiConfig(updatedConfig);
+                                    await aiAgentService.saveSettings(updatedConfig);
+                                    setEditingCloudProvider(null);
+                                    setCloudKeyInput('');
+                                    toast.success(`${provider.name} API key saved & connected!`);
+                                  }}
+                                  className="px-3.5 py-2 text-xs font-semibold rounded-lg bg-primary text-on-primary hover:bg-primary/90 transition-colors"
+                                >
+                                  Save & Connect
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setEditingCloudProvider(null);
+                                    setCloudKeyInput('');
+                                  }}
+                                  className="px-3 py-2 text-xs font-semibold rounded-lg border border-outline-variant/30 text-on-surface-variant hover:bg-surface-container transition-colors"
+                                >
+                                  Cancel
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </section>
+
+              {/* Master Save Button */}
+              <div className="flex justify-end pt-1">
+                <button
+                  type="button"
+                  onClick={async () => {
+                    await aiAgentService.saveSettings(aiConfig);
+                    toast.success('AI configuration saved successfully');
+                  }}
+                  className="px-6 py-2.5 bg-primary text-on-primary text-[13px] font-semibold rounded-xl hover:bg-primary/90 transition-colors shadow-sm flex items-center gap-2"
+                >
+                  <span className="material-symbols-outlined text-[18px]">save</span>
+                  <span>Save All AI Preferences</span>
+                </button>
               </div>
-            </section>
+            </div>
           )}
 
           {/* Sync Tab */}
